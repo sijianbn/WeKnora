@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WeKnora Docker 编译环境（跨电脑搭建指南）</title>
+<style>
+:root{
+  --bg:#f5f7fa; --bg2:#ffffff; --fg:#1f2937; --fg2:#4b5563; --muted:#6b7280;
+  --acc:#2e6cc4; --acc2:#4e8ee8; --line:#e2e8f0; --code-bg:#0f172a; --code-fg:#e2e8f0;
+  --tag-bg:#e8f0fe; --tag-fg:#1d4ed8; --card:#ffffff; --shadow:0 1px 4px rgba(0,0,0,.08);
+  --ok:#15803d; --warn:#b45309; --bad:#b91c1c;
+}
+html[data-theme="dark"]{
+  --bg:#0b1220; --bg2:#111a2e; --fg:#e5e7eb; --fg2:#b6c2d4; --muted:#8494ab;
+  --acc:#5b9bf0; --acc2:#7db2f5; --line:#24324a; --code-bg:#060b16; --code-fg:#dbe4f0;
+  --tag-bg:#1c2b47; --tag-fg:#8ab4f8; --card:#131e33; --shadow:0 1px 6px rgba(0,0,0,.5);
+  --ok:#4ade80; --warn:#fbbf24; --bad:#f87171;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--fg);line-height:1.75;font-size:15px}
+a{color:var(--acc);text-decoration:none}
+a:hover{text-decoration:underline}
+h1,h2,h3,h4{line-height:1.35}
+h2{font-size:1.5em;border-bottom:2px solid var(--acc);padding-bottom:.35em;margin-top:2.2em}
+h3{font-size:1.18em;margin-top:1.6em;color:var(--acc)}
+code{font-family:Consolas,"JetBrains Mono",monospace;background:var(--tag-bg);color:var(--tag-fg);padding:.1em .4em;border-radius:4px;font-size:.9em}
+pre{background:var(--code-bg);color:var(--code-fg);padding:14px 16px;border-radius:8px;overflow-x:auto;font-size:.86em;line-height:1.6}
+pre code{background:none;color:inherit;padding:0}
+table{border-collapse:collapse;width:100%;margin:1em 0;font-size:.93em;background:var(--card);box-shadow:var(--shadow)}
+th{background:var(--acc);color:#fff;text-align:left;padding:8px 12px;font-weight:600}
+td{border:1px solid var(--line);padding:7px 12px;vertical-align:top}
+tr:nth-child(even) td{background:var(--bg2)}
+header.top{position:sticky;top:0;z-index:50;background:linear-gradient(90deg,#1e3a6d,#2e6cc4);color:#fff;display:flex;align-items:center;gap:14px;padding:10px 22px;box-shadow:var(--shadow)}
+header.top b{font-size:1.1em;letter-spacing:.5px}
+header.top .spacer{flex:1}
+header.top button{background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.4);border-radius:6px;padding:5px 14px;cursor:pointer;font-size:.9em}
+header.top button:hover{background:rgba(255,255,255,.28)}
+.wrap{display:flex;max-width:1400px;margin:0 auto}
+nav.toc{width:250px;flex-shrink:0;position:sticky;top:56px;height:calc(100vh - 56px);overflow-y:auto;padding:18px 14px;border-right:1px solid var(--line);background:var(--bg2);font-size:.9em}
+nav.toc a{display:block;color:var(--fg2);padding:4px 8px;border-left:3px solid transparent;border-radius:0 6px 6px 0}
+nav.toc a:hover{background:var(--tag-bg);color:var(--tag-fg);text-decoration:none;border-left-color:var(--acc)}
+nav.toc .grp{font-weight:700;color:var(--muted);margin:12px 0 4px;padding-left:8px;font-size:.85em;text-transform:uppercase;letter-spacing:.5px}
+main{flex:1;min-width:0;padding:26px 34px 80px;max-width:1050px}
+.note{border-left:4px solid var(--acc);background:var(--card);padding:12px 16px;border-radius:0 8px 8px 0;margin:1.2em 0;box-shadow:var(--shadow)}
+.note.warn{border-left-color:var(--warn)}
+.note.ok{border-left-color:var(--ok)}
+.note b:first-child{color:var(--acc)}
+.note.warn b:first-child{color:var(--warn)}
+.note.ok b:first-child{color:var(--ok)}
+kbd{font-family:Consolas,monospace;background:var(--bg2);border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:1px 6px;font-size:.88em}
+.tag{display:inline-block;background:var(--tag-bg);color:var(--tag-fg);border-radius:10px;padding:1px 10px;font-size:.82em;margin-right:6px}
+.pill-ok{color:var(--ok);font-weight:600}
+.pill-warn{color:var(--warn);font-weight:600}
+.pill-bad{color:var(--bad);font-weight:600}
+@media(max-width:900px){nav.toc{display:none}.wrap{display:block}main{padding:20px 16px 60px}}
+</style>
+</head>
+<body>
+<header class="top">
+  <b>🐳 WeKnora Docker 编译环境</b>
+  <span style="opacity:.85;font-size:.88em">跨电脑搭建指南 · go1.26 · 2026-09</span>
+  <span class="spacer"></span>
+  <button onclick="toggleTheme()">浅色 / 深色</button>
+</header>
+<div class="wrap">
+<nav class="toc">
+  <div class="grp">开始</div>
+  <a href="#why">为什么需要它</a>
+  <a href="#components">组成一览</a>
+  <div class="grp">新电脑搭建</div>
+  <a href="#prereq">前置条件</a>
+  <a href="#step1">① 拉取 golang 基础镜像</a>
+  <a href="#step2">② 构建 builder 镜像</a>
+  <a href="#step3">③ 保存 docker-go.sh</a>
+  <a href="#step4">④ 预热缓存（warmup）</a>
+  <div class="grp">日常使用</div>
+  <a href="#usage">常用命令</a>
+  <a href="#cache">缓存机制</a>
+  <div class="grp">踩坑实录</div>
+  <a href="#pitfalls">已知问题与解法</a>
+  <div class="grp">附录</div>
+  <a href="#appendix">完整源码（复制即用）</a>
+</nav>
+<main>
+
+<h1>WeKnora Docker 编译环境</h1>
+<p>在任意装有 Docker 的电脑上，为 WeKnora（Go 后端 + Vue 前端）提供一套<b>与 CI 一致的 Linux 编译/测试环境</b>，一次预热后增量构建只需秒级。本页内容自成一体，不依赖仓库内任何文件，可整体拷走。</p>
+
+<h2 id="why">为什么需要它</h2>
+<p>Windows 本机直接装 Go 也编不过 WeKnora 后端，原因是三条 cgo 依赖链：</p>
+<table>
+<tr><th>依赖</th><th>被谁引用</th><th>Windows 上的表现</th></tr>
+<tr><td><code>pg_query_go/v6</code></td><td><code>internal/utils</code>（SQL 注入检测）</td><td>API 全部在 <code>//go:build cgo</code> 后面，无 gcc 时 <code>undefined: pg_query.Parse</code></td></tr>
+<tr><td><code>sqlite-vec-go-bindings</code></td><td><code>internal/container</code>（SQLite 向量）</td><td>缺 <code>sqlite3.h</code>，<code>build constraints exclude all Go files</code></td></tr>
+<tr><td><code>duckdb-go-bindings</code></td><td><code>internal/container</code>（桌面端）</td><td>同上，Windows 绑定缺失</td></tr>
+</table>
+<p>几乎全部业务包都间接依赖 <code>internal/utils</code>，所以在 Windows 上<b>连单元测试都无法编译</b>。装 mingw + 逐个补头文件可以绕（本机实测过），但脆、慢、且与 CI 环境不一致。Docker 方案一次搞定：</p>
+<ul>
+<li><span class="pill-ok">✔ 一致</span> 与 CI 同为 Linux + go 1.26 + gcc，测试结果可信</li>
+<li><span class="pill-ok">✔ 增量</span> 模块缓存 + 编译缓存落在两个命名卷里，改一个包只重编那一个包</li>
+<li><span class="pill-ok">✔ 零污染</span> 不在本机装 Go/gcc，不写注册表，删掉镜像与卷即彻底卸载</li>
+</ul>
+
+<h2 id="components">组成一览</h2>
+<table>
+<tr><th>组件</th><th>名字</th><th>说明</th></tr>
+<tr><td>构建镜像</td><td><code>weknora-go-builder:latest</code></td><td><code>golang:1.26</code> + <code>build-essential</code> + <code>libsqlite3-dev</code>（apt 走阿里源），内置 <code>GOPROXY=goproxy.cn</code></td></tr>
+<tr><td>模块缓存卷</td><td><code>weknora-gomod-cache</code> → <code>/go/pkg/mod</code></td><td>Go 依赖包，warmup 一次填满</td></tr>
+<tr><td>编译缓存卷</td><td><code>weknora-gobuild-cache</code> → <code>/root/.cache/go-build</code></td><td>编译产物缓存，增量构建的关键</td></tr>
+<tr><td>入口脚本</td><td><code>docker-go.sh</code></td><td>把任意 <code>go</code> 子命令放进容器执行；处理 Windows 路径转换等脏活</td></tr>
+</table>
+
+<h2 id="prereq">前置条件（新电脑）</h2>
+<div class="note"><b>清单</b><br>
+① Docker Desktop 已安装并运行（<code>docker info</code> 有输出）<br>
+② 已 clone WeKnora 仓库（建议 <code>git clone --config core.autocrlf=false</code>，原因见<a href="#crlf">踩坑 · CRLF</a>）<br>
+③ 网络二选一：代理可用（能拉 docker.io），或直连国内镜像源（下文给了命令）</div>
+
+<h2 id="step1">① 拉取 golang 基础镜像</h2>
+<p>代理正常时直接拉；失败就用国内 registry 直连再改标签（两步等价）：</p>
+<pre><code># 方式 A：代理正常
+docker pull golang:1.26
+
+# 方式 B：代理挂了 / 直连慢
+docker pull docker.m.daocloud.io/library/golang:1.26
+docker tag  docker.m.daocloud.io/library/golang:1.26 golang:1.26</code></pre>
+
+<h2 id="step2">② 构建 builder 镜像</h2>
+<p>在任意空目录创建 <code>Dockerfile.go-builder</code>（完整内容在<a href="#appendix">附录</a>），然后：</p>
+<pre><code>docker build -t weknora-go-builder:latest -f Dockerfile.go-builder .</code></pre>
+<p>构建耗时约 1–3 分钟（apt 走阿里源）。验证：</p>
+<pre><code>docker run --rm weknora-go-builder:latest sh -c "go version &amp;&amp; gcc --version | head -1"</code></pre>
+
+<h2 id="step3">③ 保存 docker-go.sh</h2>
+<p>把<a href="#appendix">附录</a>中的脚本存为仓库根目录的 <code>docs_for_bn/docker-go.sh</code>（或任意位置，脚本会自动定位仓库根）。脚本做了三件脏活：</p>
+<ul>
+<li><b>路径转换</b>：Git Bash 的 <code>pwd -W</code> 给出 <code>C:/...</code> 形式 + <code>MSYS_NO_PATHCONV=1</code> 阻止 Docker 参数被二次转换（这是最大的坑，见<a href="#msys">踩坑</a>）</li>
+<li><b>挂载两卷</b>：模块缓存 + 编译缓存</li>
+<li><b>warmup 子命令</b>：一次性填满两个缓存卷</li>
+</ul>
+
+<h2 id="step4">④ 预热缓存（warmup，只需一次）</h2>
+<div class="note warn"><b>顺序很重要</b>：如果这台电脑还没装前端依赖，先 <code>cd frontend &amp;&amp; npm install</code> 再 warmup。warmup 里的 <code>go build ./...</code> 会遍历目录树，与 npm 同时跑会撞上 <code>node_modules</code> 中瞬时消失的目录而报错（<code>pattern ./...: open frontend/node_modules/fsevents</code>）。</div>
+<pre><code>cd &lt;仓库根&gt;
+sh docs_for_bn/docker-go.sh warmup
+# 首次 5–15 分钟（下载全部 Go 模块 + 全量编译）
+# 看到 WARMUP-DONE 即成功；之后全量构建只要几秒</code></pre>
+
+<h2 id="usage">日常使用</h2>
+<table>
+<tr><th>场景</th><th>命令</th></tr>
+<tr><td>全量编译</td><td><code>sh docs_for_bn/docker-go.sh build ./...</code></td></tr>
+<tr><td>编译指定包</td><td><code>sh docs_for_bn/docker-go.sh build ./internal/application/service/</code></td></tr>
+<tr><td>跑某包测试</td><td><code>sh docs_for_bn/docker-go.sh test ./internal/application/service/ -count=1</code></td></tr>
+<tr><td>只跑匹配的测试</td><td><code>sh docs_for_bn/docker-go.sh test ./internal/... -run TestExtensionSupport -v -count=1</code></td></tr>
+<tr><td>静态检查</td><td><code>sh docs_for_bn/docker-go.sh vet ./internal/...</code></td></tr>
+<tr><td>刷新依赖后重预热</td><td><code>sh docs_for_bn/docker-go.sh warmup</code></td></tr>
+</table>
+<p>前端类型检查在宿主机跑即可（需 Node 22+，<code>frontend/</code> 下 <code>npm install</code> 后 <code>npm run type-check</code>），不依赖本环境。</p>
+
+<h2 id="cache">缓存机制</h2>
+<div class="note"><b>两个命名卷</b><br>
+<code>weknora-gomod-cache</code>（<code>/go/pkg/mod</code>）与 <code>weknora-gobuild-cache</code>（<code>/root/.cache/go-build</code>）由 Docker 持久化，容器销毁不丢。依赖大版本升级或想彻底重来时清理：<br>
+<code>docker volume rm weknora-gomod-cache weknora-gobuild-cache</code> 然后重新 warmup。</div>
+
+<h2 id="pitfalls">踩坑实录（按痛度排序）</h2>
+
+<h3 id="msys">1. Git Bash 路径转换把 <code>-w /src</code> 变成 <code>C:/Program Files/Git/src</code></h3>
+<p><span class="pill-bad">症状</span> <code>the working directory 'C:/Program Files/Git/src' is invalid</code> 或挂载路径前被拼上仓库路径。<br>
+<span class="pill-ok">解法</span> 脚本内已内置 <code>export MSYS_NO_PATHCONV=1</code>；若手写 docker 命令，记得带上，并用 <code>C:/...</code> 正斜杠形式的挂载路径。</p>
+
+<h3 id="proxy">2. Docker Desktop 走系统代理，代理没开 = 全部拉取失败</h3>
+<p><span class="pill-bad">症状</span> <code>connecting to 127.0.0.1:7890: connection refused / EOF</code>（Docker Desktop 把系统代理硬路由进 daemon）。<br>
+<span class="pill-ok">解法</span> ① 打开你的代理客户端（7890 端口）；或 ② 绕开 docker.io：<code>docker pull docker.m.daocloud.io/library/golang:1.26</code> 再改标签。镜像构建的 apt 已固定走阿里源，不受代理影响。</p>
+
+<h3 id="npm-race">3. warmup 与 npm install 竞争</h3>
+<p><span class="pill-bad">症状</span> <code>pattern ./...: open frontend/node_modules/fsevents: no such file or directory</code>。<br>
+<span class="pill-ok">解法</span> 先 <code>npm install</code> 后 warmup（见步骤④的警告框）。</p>
+
+<h3 id="crlf">4. CRLF 检出导致 <code>TestDeploymentCapabilityKeysMatchFrontend</code> 误报</h3>
+<p><span class="pill-bad">症状</span> 该测试在容器内报 <code>backend keys vs frontend keys</code> 不一致，前端 keys 每个都拖着 <code>',</code> 尾巴。<br>
+<span class="pill-bad">根因</span> <code>core.autocrlf=true</code> 检出时把 <code>frontend/src/config/deploymentCapabilities.ts</code> 变成 CRLF，测试的 trim 顺序处理不了 <code>\r</code>。容器挂载的是宿主机工作区，所以容器内同样中招。<br>
+<span class="pill-ok">解法</span> clone 时用 <code>git clone --config core.autocrlf=false</code>；已有仓库可忽略此误报（CI 的 LF 检出不受影响），或 <code>git config core.autocrlf false &amp;&amp; git rm --cached -r . &amp;&amp; git reset --hard</code> 重检出（注意会重写工作区）。</p>
+
+<h3 id="ensurepip">5. 容器内 <code>TestSkillPythonPackageRecoveryInstallsWithoutPip</code> 失败</h3>
+<p><span class="pill-bad">症状</span> <code>No module named ensurepip</code>。golang 镜像自带的最小 python 没有 ensurepip。<br>
+<span class="pill-ok">解法</span> 属已知误报，与代码无关；要消除可在镜像里加 <code>python3-venv</code>（apt），一般没必要。</p>
+
+<h3>6. 全量测试中仅这 2 个失败 ⇒ 可以放心</h3>
+<p>本环境全量 <code>go test ./...</code> 的基线：<b>75 包 ok，仅上述 #4、#5 两处环境性失败</b>。新改动只要不增加除此之外的失败即为干净。</p>
+
+<h2 id="appendix">附录：完整源码（复制即用）</h2>
+
+<h3>Dockerfile.go-builder</h3>
+<pre><code># WeKnora Go 构建环境：golang:1.26 + 项目所需编译依赖（build-essential、libsqlite3-dev）。
+# 模块缓存与构建缓存通过命名卷挂载（weknora-gomod-cache / weknora-gobuild-cache），
+# 一次预热后，后续构建只编译改动的包。
+FROM golang:1.26
+ENV GOPROXY=https://goproxy.cn,direct
+RUN sed -i 's|deb.debian.org|mirrors.aliyun.com|g' /etc/apt/sources.list.d/debian.sources 2>/dev/null || true \
+ &amp;&amp; apt-get update \
+ &amp;&amp; apt-get install -y --no-install-recommends build-essential libsqlite3-dev \
+ &amp;&amp; rm -rf /var/lib/apt/lists/*
+WORKDIR /src</code></pre>
+
+<h3>docker-go.sh</h3>
+<pre><code>#!/bin/sh
+# WeKnora Go 构建环境（Windows/Git Bash 用法：sh docker-go.sh &lt;go 命令...&gt;）
+#
+# 镜像:   weknora-go-builder —— golang:1.26 + build-essential + libsqlite3-dev
+# 卷:     weknora-gomod-cache  → /go/pkg/mod        （Go 模块缓存，一次性预热）
+#         weknora-gobuild-cache → /root/.cache/go-build （编译缓存，增量构建）
+#
+# 用法示例:
+#   sh docs_for_bn/docker-go.sh build ./...
+#   sh docs_for_bn/docker-go.sh test ./internal/application/service/ -count=1
+#   sh docs_for_bn/docker-go.sh vet ./internal/...
+#
+# 首次使用前请先预热缓存（只需一次）:
+#   sh docs_for_bn/docker-go.sh warmup
+
+set -e
+
+# Git Bash 的 pwd -W 直接给出 "C:/bn/gwz/WeKnora"（Docker 可用的正斜杠 Windows 路径）；
+# 其他环境回退 pwd，若是 "/c/..." 形式则转成 "C:/..."。
+REPO_DIR="$(cd "$(dirname "$0")/.." &amp;&amp; pwd -W 2&gt;/dev/null || true)"
+if [ -z "$REPO_DIR" ]; then
+  REPO_DIR="$(cd "$(dirname "$0")/.." &amp;&amp; pwd)"
+  case "$REPO_DIR" in
+    /[a-z]/*) REPO_DIR="$(echo "$REPO_DIR" | sed 's|^/\([a-zA-Z]\)/|\U\1:/|')" ;;
+  esac
+fi
+
+# Git Bash 会把 /src 转换成 Windows 路径，禁掉
+case "$(uname -s)" in
+  MINGW*|MSYS*|CYGWIN*) export MSYS_NO_PATHCONV=1 ;;
+esac
+
+if [ "$1" = "warmup" ]; then
+  shift
+  exec docker run --rm \
+    -v "$REPO_DIR:/src" \
+    -v weknora-gomod-cache:/go/pkg/mod \
+    -v weknora-gobuild-cache:/root/.cache/go-build \
+    -w /src \
+    weknora-go-builder:latest sh -c "go mod download &amp;&amp; go build ./... &amp;&amp; echo WARMUP-DONE"
+fi
+
+exec docker run --rm \
+  -v "$REPO_DIR:/src" \
+  -v weknora-gomod-cache:/go/pkg/mod \
+  -v weknora-gobuild-cache:/root/.cache/go-build \
+  -w /src \
+  weknora-go-builder:latest go "$@"</code></pre>
+
+<h3>环境信息快照</h3>
+<table>
+<tr><th>项</th><th>值</th></tr>
+<tr><td>基础镜像</td><td>golang:1.26（2026-09 时点 = go1.26.x）</td></tr>
+<tr><td>宿主机</td><td>Windows 10/11 + Docker Desktop + Git Bash</td></tr>
+<tr><td>Go 工具链（本机直装版，可选）</td><td><code>C:\bn\Tools\go-sdk\go\bin\go.exe</code>（aliyun 镜像下载，仅能编非 cgo 包）</td></tr>
+<tr><td>产出</td><td>PR Tencent/WeKnora#3090（分支 feat/chat-attachment-custom-extensions）</td></tr>
+</table>
+
+<div class="note ok"><b>卸载</b>（如需彻底清理）<br>
+<code>docker rmi weknora-go-builder:latest golang:1.26</code><br>
+<code>docker volume rm weknora-gomod-cache weknora-gobuild-cache</code></div>
+
+</main>
+</div>
+<script>
+function toggleTheme(){
+  var h=document.documentElement;
+  var t=h.getAttribute('data-theme')==='dark'?'light':'dark';
+  h.setAttribute('data-theme',t);
+  try{localStorage.setItem('wk-theme',t)}catch(e){}
+}
+(function(){
+  try{
+    var t=localStorage.getItem('wk-theme');
+    if(t)document.documentElement.setAttribute('data-theme',t);
+    else if(window.matchMedia('(prefers-color-scheme: dark)').matches)
+      document.documentElement.setAttribute('data-theme','dark');
+  }catch(e){}
+})();
+</script>
+</body>
+</html>
