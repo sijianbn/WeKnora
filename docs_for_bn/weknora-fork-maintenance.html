@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WeKnora Fork 自维护策略（bn-main 集成分支工作流）</title>
+<style>
+:root{
+  --bg:#f5f7fa; --bg2:#ffffff; --fg:#1f2937; --fg2:#4b5563; --muted:#6b7280;
+  --acc:#2e6cc4; --acc2:#4e8ee8; --line:#e2e8f0; --code-bg:#0f172a; --code-fg:#e2e8f0;
+  --tag-bg:#e8f0fe; --tag-fg:#1d4ed8; --card:#ffffff; --shadow:0 1px 4px rgba(0,0,0,.08);
+  --ok:#15803d; --warn:#b45309; --bad:#b91c1c;
+}
+html[data-theme="dark"]{
+  --bg:#0b1220; --bg2:#111a2e; --fg:#e5e7eb; --fg2:#b6c2d4; --muted:#8494ab;
+  --acc:#5b9bf0; --acc2:#7db2f5; --line:#24324a; --code-bg:#060b16; --code-fg:#dbe4f0;
+  --tag-bg:#1c2b47; --tag-fg:#8ab4f8; --card:#131e33; --shadow:0 1px 6px rgba(0,0,0,.5);
+  --ok:#4ade80; --warn:#fbbf24; --bad:#f87171;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--fg);line-height:1.75;font-size:15px}
+a{color:var(--acc);text-decoration:none}
+a:hover{text-decoration:underline}
+h1,h2,h3,h4{line-height:1.35}
+h2{font-size:1.5em;border-bottom:2px solid var(--acc);padding-bottom:.35em;margin-top:2.2em}
+h3{font-size:1.18em;margin-top:1.6em;color:var(--acc)}
+code{font-family:Consolas,"JetBrains Mono",monospace;background:var(--tag-bg);color:var(--tag-fg);padding:.1em .4em;border-radius:4px;font-size:.9em}
+pre{background:var(--code-bg);color:var(--code-fg);padding:14px 16px;border-radius:8px;overflow-x:auto;font-size:.86em;line-height:1.6}
+pre code{background:none;color:inherit;padding:0}
+table{border-collapse:collapse;width:100%;margin:1em 0;font-size:.93em;background:var(--card);box-shadow:var(--shadow)}
+th{background:var(--acc);color:#fff;text-align:left;padding:8px 12px;font-weight:600}
+td{border:1px solid var(--line);padding:7px 12px;vertical-align:top}
+tr:nth-child(even) td{background:var(--bg2)}
+header.top{position:sticky;top:0;z-index:50;background:linear-gradient(90deg,#1e3a6d,#2e6cc4);color:#fff;display:flex;align-items:center;gap:14px;padding:10px 22px;box-shadow:var(--shadow)}
+header.top b{font-size:1.1em;letter-spacing:.5px}
+header.top .spacer{flex:1}
+header.top button{background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.4);border-radius:6px;padding:5px 14px;cursor:pointer;font-size:.9em}
+header.top button:hover{background:rgba(255,255,255,.28)}
+.wrap{display:flex;max-width:1400px;margin:0 auto}
+nav.toc{width:250px;flex-shrink:0;position:sticky;top:56px;height:calc(100vh - 56px);overflow-y:auto;padding:18px 14px;border-right:1px solid var(--line);background:var(--bg2);font-size:.9em}
+nav.toc a{display:block;color:var(--fg2);padding:4px 8px;border-left:3px solid transparent;border-radius:0 6px 6px 0}
+nav.toc a:hover{background:var(--tag-bg);color:var(--tag-fg);text-decoration:none;border-left-color:var(--acc)}
+nav.toc .grp{font-weight:700;color:var(--muted);margin:12px 0 4px;padding-left:8px;font-size:.85em;text-transform:uppercase;letter-spacing:.5px}
+main{flex:1;min-width:0;padding:26px 34px 80px;max-width:1050px}
+.note{border-left:4px solid var(--acc);background:var(--card);padding:12px 16px;border-radius:0 8px 8px 0;margin:1.2em 0;box-shadow:var(--shadow)}
+.note.warn{border-left-color:var(--warn)}
+.note.ok{border-left-color:var(--ok)}
+.note b:first-child{color:var(--acc)}
+.note.warn b:first-child{color:var(--warn)}
+.note.ok b:first-child{color:var(--ok)}
+.tag{display:inline-block;background:var(--tag-bg);color:var(--tag-fg);border-radius:10px;padding:1px 10px;font-size:.82em;margin-right:6px}
+.pill-ok{color:var(--ok);font-weight:600}
+.pill-warn{color:var(--warn);font-weight:600}
+.pill-bad{color:var(--bad);font-weight:600}
+.tree{background:var(--code-bg);color:var(--code-fg);border-radius:8px;padding:14px 18px;font-family:Consolas,monospace;font-size:.86em;line-height:1.7;overflow-x:auto;margin:1em 0}
+.tree .up{color:#93c5fd}.tree .feat{color:#86efac}.tree .bn{color:#fbbf24;font-weight:700}
+@media(max-width:900px){nav.toc{display:none}.wrap{display:block}main{padding:20px 16px 60px}}
+</style>
+</head>
+<body>
+<header class="top">
+  <b>🍴 WeKnora Fork 自维护策略</b>
+  <span style="opacity:.85;font-size:.88em">bn-main 集成分支工作流 · 2026-09</span>
+  <span class="spacer"></span>
+  <button onclick="toggleTheme()">浅色 / 深色</button>
+</header>
+<div class="wrap">
+<nav class="toc">
+  <div class="grp">模型</div>
+  <a href="#model">核心模型一图流</a>
+  <a href="#remotes">本机远端布局</a>
+  <div class="grp">日常操作</div>
+  <a href="#sync">同步上游</a>
+  <a href="#newfeature">新功能开发</a>
+  <a href="#deploy">构建部署</a>
+  <a href="#accepted">上游接受了你的 PR</a>
+  <a href="#rejected">上游明确拒绝</a>
+  <div class="grp">机制与坑</div>
+  <a href="#credential">双账号推送凭据</a>
+  <a href="#cikung">fork 上的免费 CI</a>
+  <a href="#principles">三条实践原则</a>
+  <div class="grp">附录</div>
+  <a href="#quickref">命令速查卡</a>
+</nav>
+<main>
+
+<h1>WeKnora Fork 自维护策略</h1>
+<p>上游（Tencent/WeKnora）不一定接受每个 PR，但业务要用。策略：<b>fork 即产品</b>——fork 上维护一条集成分支 <code>bn-main</code>（上游 main + 你的未合并补丁），<b>部署永远从 bn-main 构建</b>；每个功能一个干净的特性分支，与 PR 一一对应，随时可独立提交上游，互不干扰。</p>
+
+<h2 id="model">核心模型一图流</h2>
+<div class="tree">
+<span class="up">Tencent/main&nbsp;&nbsp;──┬─────────────┬──────────────┬──→&nbsp;&nbsp;(上游持续前进)</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│<br>
+特性分支&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="feat">feat/xxx-3087</span>&nbsp;&nbsp;<span class="feat">feat/yyy</span>&nbsp;&nbsp;&nbsp;&nbsp;<span class="feat">feat/zzz</span>&nbsp;&nbsp;&nbsp;&nbsp;(= fork 上的 PR 分支)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;merge&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;merge&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│<br>
+<span class="bn">bn-main&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;──┴─────────────┴──────────────┴──→&nbsp;&nbsp;(你的部署源，永远可构建)</span>
+</div>
+<table>
+<tr><th>分支</th><th>角色</th><th>推送目标</th><th>规则</th></tr>
+<tr><td><code>bn-main</code></td><td>集成分支 / 部署源</td><td>fork（备份 + CI）</td><td><b>永不直接开发</b>，只做 merge/rebase</td></tr>
+<tr><td><code>feat/*</code></td><td>功能分支 / PR 载体</td><td>fork（即 PR 源分支）</td><td>小而独立，只碰必要文件</td></tr>
+<tr><td><code>origin/main</code></td><td>上游真相</td><td>只 fetch，永不 push</td><td>每次集成的基准</td></tr>
+</table>
+<div class="note"><b>私有内容也走 feat 分支</b>：不打算提上游的内容（如 <code>docs_for_bn/</code> 私有文档）同样从 <code>origin/main</code> 切独立分支维护（例：<code>feat/docs-for-bn</code>），只是永不提 PR。「bn-main 永不直接开发」对这类内容同样生效——改动一律先落在分支上，再 merge 进 bn-main。</div>
+
+<h2 id="remotes">本机远端布局（注意：与常见惯例相反）</h2>
+<table>
+<tr><th>远端名</th><th>指向</th><th>用途</th></tr>
+<tr><td><code>origin</code></td><td>https://github.com/Tencent/WeKnora.git</td><td>上游，<b>只读</b>：fetch 同步用</td></tr>
+<tr><td><code>fork</code></td><td>https://github.com/sijianbn/WeKnora.git</td><td>你自己的 fork：push 特性分支与 bn-main</td></tr>
+</table>
+<div class="note warn"><b>新电脑恢复</b>（按下述顺序执行一次）：<br>
+<pre><code>git clone --config core.autocrlf=false https://github.com/sijianbn/WeKnora.git WeKnora
+cd WeKnora
+git remote add origin https://github.com/Tencent/WeKnora.git
+git fetch origin
+git checkout -b bn-main origin/main        # 或从 fork 拉回已有 bn-main
+git branch --set-upstream-to=fork/bn-main bn-main</code></pre>
+（CRLF 参数的原因见《Docker 编译环境》文档踩坑 #4）</div>
+
+<h2 id="sync">同步上游（每周 / 每次要用上游新功能前）</h2>
+<pre><code>git checkout bn-main
+git fetch origin                          # 拉上游最新
+git rebase origin/main                    # bn-main 的补丁整体搬到新 main 上
+# 有冲突 → 解决后 git add + git rebase --continue；想放弃 → git rebase --abort
+git -c credential.username=sijianbn push -f fork bn-main</code></pre>
+<div class="note"><b>为什么用 rebase 而不是 merge</b>：补丁少（个位数）时 rebase 历史最干净——bn-main 永远等价于「最新上游 main + N 个自己的 commit」，一眼能看出自己改了什么。补丁超过十几个或经常冲突时再改用 merge 策略。</div>
+
+<h2 id="newfeature">新功能开发（产出一个 PR + 一次集成）</h2>
+<pre><code># 1. 从最新上游 main 切出特性分支（保证 PR 干净可合并）
+git checkout -b feat/描述性名字 origin/main
+
+# 2. 开发 + 自测（编译环境见《Docker 编译环境》文档）
+#    sh docs_for_bn/docker-go.sh test ./受影响包/... -count=1
+
+# 3. 提交并推到 fork → GitHub 上开 PR（Tencent/WeKnora）
+git add ... && git commit -m "feat(scope): ..."
+git -c credential.username=sijianbn push -u fork feat/描述性名字
+
+# 4. 不管上游是否接受，先合入自己的 bn-main 用起来
+git checkout bn-main
+git merge feat/描述性名字
+git -c credential.username=sijianbn push fork bn-main</code></pre>
+
+<h2 id="deploy">构建部署（永远从 bn-main）</h2>
+<pre><code>git checkout bn-main
+docker compose build app frontend          # 本地构建自己的镜像
+docker compose up -d</code></pre>
+<p>不依赖官方 <code>wechatopenai/weknora-*</code> 镜像 tag；上游版本升级 = 同步上游后重新 build。</p>
+
+<h2 id="accepted">上游接受了你的某个 PR</h2>
+<ol>
+<li>同步上游（rebase 时，Git 会发现你的补丁与上游新 commit 内容相同而<b>自动丢弃</b>——rebase 的去重）</li>
+<li>若没自动去掉（SHA 不同内容相同偶尔发生）：<code>git rebase --onto origin/main &lt;旧基&gt; bn-main</code> 或手动 <code>git rebase -i origin/main</code> drop 掉对应 commit</li>
+<li>对应的 <code>feat/*</code> 分支可以删除：<code>git branch -d feat/xxx &amp;&amp; git push fork --delete feat/xxx</code></li>
+</ol>
+
+<h2 id="rejected">上游明确拒绝 / 长期无人理</h2>
+<ul>
+<li><b>拒绝</b>：分支保留继续在 bn-main 上活着；如果拒绝理由充分（方案之争），评估是否调整方案重提——调整时开新分支，旧分支留档</li>
+<li><b>长期无人理</b>：每隔几周 rebase 保活一次（见下方「PR 保活」），并在关联 issue 下礼貌顶帖</li>
+</ul>
+<div class="note"><b>PR 保活命令</b><br>
+<pre><code>git checkout feat/xxx
+git fetch origin
+git rebase origin/main
+git -c credential.username=sijianbn push -f fork feat/xxx</code></pre>
+维护者永远看到「可干净合并」的 PR，这是被接受的重要加分项。</div>
+
+<h2 id="credential">双账号推送凭据（本机实际情况）</h2>
+<div class="note warn"><b>现状</b>：Windows 凭据管理器里 GitHub 的默认账号是 <code>corvax2884</code>，而 fork 属于 <code>sijianbn</code>。直接 <code>git push fork</code> 会报 <code>Permission to sijianbn/WeKnora.git denied to corvax2884</code>（403）。<br><br>
+<b>可靠解法</b>：推送 fork 时一律带上内联用户名——<br>
+<code>git -c credential.username=sijianbn push fork &lt;分支&gt;</code><br><br>
+（仓库级 <code>credential.&lt;url&gt;.username</code> 配置实测不生效：GCM 按 host 匹配优先返回了默认账号的 OAuth token，所以别指望那条配置。）</div>
+
+<h2 id="cikung">fork 上的免费 CI</h2>
+<p>GitHub Actions 在<b>自己的 fork 里不需要维护者批准</b>。工作流：推到 fork → fork 的 Actions 页直接跑（若默认禁用，在 fork 的 Actions 标签页点 "I understand my workflows, go ahead and enable them"）。这样可以在提 PR <b>之前</b>就完成 CI 自验，把「等维护者批准 workflow」的被动等待变成提前验证。</p>
+
+<h2 id="principles">三条实践原则（决定这套流程痛不痛苦）</h2>
+<ol>
+<li><b>PR 小而独立</b>：只碰必要文件、功能之间零依赖。上游接受一个 → bn-main 删一个补丁，无连锁反应。反例：一个 500 行大杂烩 PR，上游改一行就全线冲突。</li>
+<li><b>bn-main 永不直接开发</b>：所有代码先进 feat/* 再 merge 进来。否则补丁边界糊掉，将来无法「单独摘出来给上游」。</li>
+<li><b>部署前必从 bn-main 干净构建</b>：<code>git status</code> 有未提交改动时不要 build 镜像——镜像是可复现的交付物，别让它夹带工作区状态。</li>
+</ol>
+
+<h2 id="quickref">附录：命令速查卡</h2>
+<table>
+<tr><th>场景</th><th>命令</th></tr>
+<tr><td>同步上游到 bn-main</td><td><code>git checkout bn-main &amp;&amp; git fetch origin &amp;&amp; git rebase origin/main</code></td></tr>
+<tr><td>推 bn-main（注意用户名）</td><td><code>git -c credential.username=sijianbn push -f fork bn-main</code></td></tr>
+<tr><td>新功能分支</td><td><code>git checkout -b feat/名字 origin/main</code></td></tr>
+<tr><td>功能合入 bn-main</td><td><code>git checkout bn-main &amp;&amp; git merge feat/名字</code></td></tr>
+<tr><td>PR 保活</td><td><code>git rebase origin/main feat/名字</code> 后 <code>push -f fork</code></td></tr>
+<tr><td>部署</td><td><code>git checkout bn-main &amp;&amp; docker compose build app frontend &amp;&amp; docker compose up -d</code></td></tr>
+<tr><td>看 bn-main 比上游多什么</td><td><code>git log --oneline origin/main..bn-main</code></td></tr>
+</table>
+
+<div class="note ok"><b>当前快照（2026-09-09）</b><br>
+bn-main = 上游 df7d871a + 两个 feat 分支的 merge：<code>feat/chat-attachment-custom-extensions</code>（自定义附件格式，PR <a href="https://github.com/Tencent/WeKnora/pull/3090">#3090</a>，关联 issue <a href="https://github.com/Tencent/WeKnora/issues/3087">#3087</a>）和 <code>feat/docs-for-bn</code>（docs_for_bn 私有文档，永不提上游）。均已推送到 fork 并设好上游跟踪；私有文档的后续改动一律在 <code>feat/docs-for-bn</code> 上进行再 merge 进 bn-main。配套文档：《WeKnora Docker 编译环境》（weknora-docker-build-env.html）。</div>
+
+</main>
+</div>
+<script>
+function toggleTheme(){
+  var h=document.documentElement;
+  var t=h.getAttribute('data-theme')==='dark'?'light':'dark';
+  h.setAttribute('data-theme',t);
+  try{localStorage.setItem('wk-theme',t)}catch(e){}
+}
+(function(){
+  try{
+    var t=localStorage.getItem('wk-theme');
+    if(t)document.documentElement.setAttribute('data-theme',t);
+    else if(window.matchMedia('(prefers-color-scheme: dark)').matches)
+      document.documentElement.setAttribute('data-theme','dark');
+  }catch(e){}
+})();
+</script>
+</body>
+</html>

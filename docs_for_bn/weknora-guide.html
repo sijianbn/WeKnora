@@ -1,0 +1,857 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WeKnora 使用指南与功能全景 · v0.8.0</title>
+<style>
+:root{
+  --bg:#f5f7fa; --bg2:#ffffff; --fg:#1f2937; --fg2:#4b5563; --muted:#6b7280;
+  --acc:#2e6cc4; --acc2:#4e8ee8; --line:#e2e8f0; --code-bg:#0f172a; --code-fg:#e2e8f0;
+  --kw:#93c5fd; --str:#86efac; --cmt:#94a3b8; --card:#ffffff; --shadow:0 1px 4px rgba(0,0,0,.08);
+  --tag-bg:#e8f0fe; --tag-fg:#1d4ed8;
+}
+html[data-theme="dark"]{
+  --bg:#0b1220; --bg2:#111a2e; --fg:#e5e7eb; --fg2:#b6c2d4; --muted:#8494ab;
+  --acc:#5b9bf0; --acc2:#7db2f5; --line:#24324a; --code-bg:#060b16; --code-fg:#dbe4f0;
+  --kw:#93c5fd; --str:#86efac; --cmt:#7c8aa0; --card:#131e33; --shadow:0 1px 6px rgba(0,0,0,.5);
+  --tag-bg:#1c2b47; --tag-fg:#8ab4f8;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--fg);line-height:1.75;font-size:15px}
+a{color:var(--acc);text-decoration:none}
+a:hover{text-decoration:underline}
+h1,h2,h3,h4{color:var(--fg);line-height:1.35}
+h2{font-size:1.55em;border-bottom:2px solid var(--acc);padding-bottom:.35em;margin-top:2.2em}
+h3{font-size:1.2em;margin-top:1.6em;color:var(--acc)}
+code{font-family:Consolas,"JetBrains Mono",monospace;background:var(--tag-bg);color:var(--tag-fg);padding:.1em .4em;border-radius:4px;font-size:.9em}
+table{border-collapse:collapse;width:100%;margin:1em 0;font-size:.93em;background:var(--card);box-shadow:var(--shadow)}
+th{background:var(--acc);color:#fff;text-align:left;padding:8px 12px;font-weight:600}
+td{border:1px solid var(--line);padding:7px 12px;vertical-align:top}
+tr:nth-child(even) td{background:var(--bg2)}
+/* layout */
+header.top{position:sticky;top:0;z-index:50;background:linear-gradient(90deg,#1e3a6d,#2e6cc4);color:#fff;display:flex;align-items:center;gap:14px;padding:10px 22px;box-shadow:var(--shadow)}
+header.top b{font-size:1.1em;letter-spacing:.5px}
+header.top .spacer{flex:1}
+header.top button{background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.4);border-radius:6px;padding:5px 14px;cursor:pointer;font-size:.9em}
+header.top button:hover{background:rgba(255,255,255,.28)}
+#navtoggle{display:none}
+.wrap{display:flex;max-width:1400px;margin:0 auto}
+nav.toc{width:260px;flex-shrink:0;position:sticky;top:56px;height:calc(100vh - 56px);overflow-y:auto;padding:18px 14px;border-right:1px solid var(--line);background:var(--bg2)}
+nav.toc a{display:block;padding:4px 8px;border-radius:5px;color:var(--fg2);font-size:.9em}
+nav.toc a.sub{padding-left:22px;font-size:.85em;color:var(--muted)}
+nav.toc a:hover,nav.toc a.act{background:var(--tag-bg);color:var(--tag-fg);text-decoration:none}
+main{flex:1;min-width:0;padding:26px 36px 90px;max-width:1000px}
+@media(max-width:960px){
+  nav.toc{display:none}
+  #navtoggle:checked ~ .wrap nav.toc{display:block;position:fixed;left:0;top:56px;width:280px;height:calc(100vh - 56px);z-index:60}
+  label[for=navtoggle]{display:inline-block!important}
+}
+label[for=navtoggle]{display:none;color:#fff;cursor:pointer;font-size:1.3em;padding:0 6px}
+.hero{background:linear-gradient(135deg,#1e3a6d 0%,#2e6cc4 60%,#4e8ee8 100%);color:#fff;border-radius:14px;padding:34px 36px;margin-bottom:26px}
+.hero h1{color:#fff;margin:0 0 10px;font-size:2em}
+.hero p{margin:.4em 0;color:#dbe8ff}
+.badge{display:inline-block;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.35);border-radius:999px;padding:2px 12px;margin:4px 6px 0 0;font-size:.82em}
+/* steps */
+.steps{display:flex;flex-wrap:wrap;gap:0;margin:1.4em 0;counter-reset:st}
+.step{flex:1 1 150px;min-width:150px;position:relative;padding:16px 14px 12px 46px;background:var(--card);border:1px solid var(--line);margin-right:26px;margin-bottom:12px;border-radius:8px;box-shadow:var(--shadow);counter-increment:st}
+.step::before{content:counter(st);position:absolute;left:12px;top:14px;width:24px;height:24px;border-radius:50%;background:var(--acc);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.85em}
+.step::after{content:"▶";position:absolute;right:-22px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:.8em}
+.step:last-child::after{content:""}
+.step b{display:block;font-size:.95em}
+.step span{font-size:.82em;color:var(--muted)}
+/* code blocks */
+pre{background:var(--code-bg);color:var(--code-fg);border-radius:10px;padding:16px 18px;overflow-x:auto;font-size:.86em;line-height:1.6;box-shadow:var(--shadow)}
+pre code{background:none;color:inherit;padding:0}
+.tk-c{color:var(--cmt);font-style:italic}
+.tk-k{color:var(--kw);font-weight:600}
+.tk-s{color:var(--str)}
+.tk-p{color:#fbbf24}
+/* details */
+details{background:var(--card);border:1px solid var(--line);border-radius:10px;margin:12px 0;box-shadow:var(--shadow)}
+summary{cursor:pointer;padding:12px 18px;font-weight:600;color:var(--acc);user-select:none;list-style:none}
+summary::before{content:"▸ ";transition:.2s}
+details[open] summary::before{content:"▾ "}
+details .dbody{padding:0 18px 16px;border-top:1px dashed var(--line);padding-top:10px}
+.callout{border-left:4px solid var(--acc);background:var(--tag-bg);padding:10px 16px;border-radius:0 8px 8px 0;margin:14px 0;font-size:.93em}
+.callout.warn{border-color:#d97706;background:rgba(217,119,6,.12)}
+svg{max-width:100%;height:auto;display:block;margin:1em auto}
+.diagram{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px;box-shadow:var(--shadow)}
+.figcap{text-align:center;color:var(--muted);font-size:.85em;margin-top:6px}
+.pill{display:inline-block;background:var(--tag-bg);color:var(--tag-fg);border-radius:999px;padding:1px 10px;font-size:.8em;margin:2px 3px 2px 0}
+@media print{nav.toc,header.top{display:none}}
+</style>
+</head>
+<body>
+<header class="top">
+  <label for="navtoggle">☰</label>
+  <b>WeKnora 使用指南</b><span style="font-size:.8em;opacity:.8">v0.8.0 · 腾讯开源 RAG / Agent / Wiki 知识框架</span>
+  <div class="spacer"></div>
+  <button id="themeBtn" onclick="toggleTheme()">🌙 暗色</button>
+</header>
+<input type="checkbox" id="navtoggle">
+<div class="wrap">
+<nav class="toc" id="toc">
+  <a href="#s0">📖 导览</a>
+  <a href="#s1">1. 项目与架构总览</a>
+  <a href="#s1-1" class="sub">1.1 架构图（SVG）</a>
+  <a href="#s2">2. 快速启动指南</a>
+  <a href="#s2-1" class="sub">2.1 环境准备</a>
+  <a href="#s2-2" class="sub">2.2 Docker Compose 启动</a>
+  <a href="#s2-3" class="sub">2.3 启动流程图</a>
+  <a href="#s2-4" class="sub">2.4 可选服务 Profile</a>
+  <a href="#s2-5" class="sub">2.5 关键环境变量</a>
+  <a href="#s3">3. 首次使用与模型配置</a>
+  <a href="#s3-1" class="sub">3.1 注册 / 登录 / 空间</a>
+  <a href="#s3-2" class="sub">3.2 配置 LLM / Embedding / Rerank</a>
+  <a href="#s4">4. 知识库：创建 / 上传 / 解析</a>
+  <a href="#s4-1" class="sub">4.1 使用流程步骤图</a>
+  <a href="#s4-2" class="sub">4.2 解析与分块</a>
+  <a href="#s4-3" class="sub">4.3 数据源导入</a>
+  <a href="#s5">5. 检索与对话问答</a>
+  <a href="#s6">6. Wiki 模式与知识图谱</a>
+  <a href="#s7">7. Agent、技能与沙箱</a>
+  <a href="#s8">8. API 调用与认证</a>
+  <a href="#s8-1" class="sub">8.1 常用 curl 示例</a>
+  <a href="#s9">9. MCP Server</a>
+  <a href="#s10">10. 多模态</a>
+  <a href="#s11">11. 集成发布（IM / 嵌入 / 客户端）</a>
+  <a href="#s12">12. 权限 / 安全 / 可观测性</a>
+  <a href="#s13">13. 全功能点清单（表格）</a>
+  <a href="#s14">14. 常用 Docker 命令速查</a>
+  <a href="#s15">15. 常见问题与排错</a>
+  <a href="#s16">16. 实战运维经验（部署实录）</a>
+  <a href="#s16-1" class="sub">16.1 快速恢复流程</a>
+  <a href="#s16-2" class="sub">16.2 三次典型故障案例</a>
+  <a href="#s16-3" class="sub">16.3 分层排障命令速查</a>
+  <a href="#s16-4" class="sub">16.4 Langfuse 自建初始化</a>
+  <a href="#s16-5" class="sub">16.5 系统管理员引导</a>
+  <a href="#s16-6" class="sub">16.6 凭证与端口备忘</a>
+</nav>
+<main>
+
+<!-- ================= HERO ================= -->
+<div class="hero" id="s0">
+  <h1>WeKnora 使用指南与功能全景</h1>
+  <p>腾讯开源的企业级知识管理框架：RAG 快速问答 · ReAct Agent 智能推理 · 自动 Wiki 生成与知识图谱 · 会话级沙箱技能 · 多端发布集成。</p>
+  <p>本页面基于仓库 <code>README_CN.md</code>、<code>website-docs/</code>、<code>docs/</code>、<code>docker-compose.yml</code>、<code>.env.example</code>、<code>mcp-server/</code> 等内容整理，纯离线可读。</p>
+  <div>
+    <span class="badge">Go 后端 + Vue 前端</span><span class="badge">Python docreader 解析</span><span class="badge">MCP Server（29 工具）</span><span class="badge">MIT License</span><span class="badge">支持私有化部署</span>
+  </div>
+</div>
+
+<h2 id="s1">1. 项目与架构总览</h2>
+<p>WeKnora（维娜拉）围绕三大核心能力构建：<b>RAG 快速问答</b>（日常知识查询）、<b>ReAct Agent 智能推理</b>（自主编排知识检索、MCP 工具、技能沙箱与网络搜索）、<b>Wiki 模式</b>（Agent 从原始文档自治生成相互链接的 Markdown Wiki 与可视化知识图谱，支持人工编辑、版本历史与一键回滚）。全流程模块化：模型、向量库、对象存储、搜索后端均可替换，数据完全自主可控。</p>
+
+<h3 id="s1-1">1.1 系统架构图</h3>
+<div class="diagram">
+<svg viewBox="0 0 960 640" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI, PingFang SC, sans-serif" font-size="13">
+  <defs>
+    <marker id="ar" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 z" fill="#5b7ba6"/></marker>
+  </defs>
+  <style>
+    .box{fill:#eaf2fc;stroke:#2e6cc4;stroke-width:1.4;rx:8}
+    html[data-theme=dark] .box{fill:#1c2b47;stroke:#5b9bf0}
+    .db{fill:#e8f7ee;stroke:#2e9e5b;stroke-width:1.4}
+    html[data-theme=dark] .db{fill:#15301f;stroke:#4ade80}
+    .ext{fill:#fdf3e3;stroke:#d97706;stroke-width:1.4}
+    html[data-theme=dark] .ext{fill:#33260d;stroke:#fbbf24}
+    .t{fill:#1f2937}html[data-theme=dark] .t{fill:#e5e7eb}
+    .tt{fill:#2e6cc4;font-weight:700}html[data-theme=dark] .tt{fill:#8ab4f8}
+    .ln{stroke:#5b7ba6;stroke-width:1.3;fill:none;marker-end:url(#ar)}
+    text{fill:#1f2937}html[data-theme=dark] text{fill:#e5e7eb}
+    .grp{fill:none;stroke:#94a3b8;stroke-dasharray:5 4;stroke-width:1;rx:10}
+  </style>
+  <!-- clients row -->
+  <rect class="box" x="20" y="20" width="920" height="80" rx="10"/>
+  <text class="tt" x="36" y="42">客户端 / 入口层</text>
+  <text x="40" y="66">Web UI (Vue + Nginx :80)　|　REST API (:8080)　|　weknora CLI　|　Chrome 插件　|　微信小程序</text>
+  <text x="40" y="88">IM 渠道（企业微信/飞书/Lark/QQBot/Slack/Telegram/钉钉/Mattermost/微信/云之家）　|　网站嵌入 Widget</text>
+  <line class="ln" x1="480" y1="100" x2="480" y2="130"/>
+  <!-- core -->
+  <rect class="box" x="140" y="132" width="680" height="128" rx="10"/>
+  <text class="tt" x="156" y="156">app（Go 后端 · Gin :8080）</text>
+  <text x="158" y="178">认证 / 空间 RBAC · 知识库管理 · 会话与 RAG 流水线 · ReAct Agent 编排</text>
+  <text x="158" y="200">Asynq 任务队列 + Worker 池治理 · API Key / OAuth · 审计日志</text>
+  <text x="158" y="222">设置页集中管理：模型 / MCP 服务 / 网络搜索 / 数据源 / 沙箱 / 系统设置</text>
+  <!-- left column: docreader & sandbox -->
+  <line class="ln" x1="240" y1="260" x2="170" y2="300"/>
+  <rect class="ext" x="30" y="302" width="250" height="96" rx="10"/>
+  <text class="tt" x="46" y="324" style="fill:#d97706">docreader（Python gRPC :50051）</text>
+  <text x="46" y="346">PDF / Word / Excel / PPT / EPUB /</text>
+  <text x="46" y="366">MHTML / 图片 / 音频 / XMind / JSON…</text>
+  <text x="46" y="386">OCR · VLM 描述 · ASR · anydoc 进程内解析</text>
+  <line class="ln" x1="330" y1="260" x2="360" y2="300"/>
+  <rect class="ext" x="310" y="302" width="240" height="96" rx="10"/>
+  <text class="tt" x="326" y="324" style="fill:#d97706">技能沙箱（会话级）</text>
+  <text x="326" y="346">Docker（需显式开启）/ E2B / Cube</text>
+  <text x="326" y="366">shell_exec · 文件读写 · 产物收集</text>
+  <text x="326" y="386">技能目录：ClawHub / SkillHub / git / zip</text>
+  <!-- right column: model & search -->
+  <line class="ln" x1="620" y1="260" x2="600" y2="300"/>
+  <rect class="ext" x="580" y="302" width="180" height="96" rx="10"/>
+  <text class="tt" x="596" y="324" style="fill:#d97706">模型厂商</text>
+  <text x="596" y="346">OpenAI / Claude / DeepSeek /</text>
+  <text x="596" y="366">Qwen / 智谱 / 混元 / Gemini /</text>
+  <text x="596" y="386">Ollama / LiteLLM 等 20+ 家</text>
+  <line class="ln" x1="740" y1="260" x2="800" y2="300"/>
+  <rect class="ext" x="780" y="302" width="160" height="96" rx="10"/>
+  <text class="tt" x="796" y="324" style="fill:#d97706">网络搜索</text>
+  <text x="796" y="346">DuckDuckGo / Bing / Google /</text>
+  <text x="796" y="366">Tavily / SearXNG / Exa /</text>
+  <text x="796" y="386">Metaso / 智谱 等 11 种</text>
+  <!-- bottom: storage -->
+  <line class="ln" x1="480" y1="260" x2="480" y2="420"/>
+  <rect class="db" x="30" y="422" width="910" height="130" rx="10"/>
+  <text class="tt" x="46" y="446" style="fill:#2e9e5b">数据与存储层（全部可替换）</text>
+  <text x="46" y="470">主数据库：PostgreSQL (pgvector, 默认) / MySQL / SQLite　　任务队列：Redis (Asynq)</text>
+  <text x="46" y="492">向量库：pgvector / Elasticsearch / OpenSearch / Milvus / Weaviate / Qdrant / Doris / 腾讯云 VectorDB</text>
+  <text x="46" y="514">对象存储：本地 / MinIO / 腾讯云COS / 火山TOS / AWS S3 / 阿里OSS / 金山KS3 / 华为OBS（每空间多实例）</text>
+  <text x="46" y="536">知识图谱：Neo4j（--profile neo4j）　　可观测：Langfuse（--profile langfuse）　　认证：OIDC (Dex)</text>
+  <line class="ln" x1="150" y1="422" x2="150" y2="398" style="marker-end:none"/>
+</svg>
+<div class="figcap">图 1 · WeKnora 系统架构：客户端层 → Go 后端核心 → 解析 / 沙箱 / 模型 / 搜索 → 数据存储层</div>
+</div>
+<p>典型 RAG 数据流：<b>上传文档</b> → docreader 解析（OCR / VLM / ASR 可选）→ 分块（自适应三层 / 父子分块）→ Embedding 向量化 → 写入向量库；<b>问答</b> → 问题向量化 → BM25 稀疏 + Dense 稠密 + GraphRAG 图谱混合召回 → Rerank 重排 → LLM 生成带引用回答（SSE 流式输出）。</p>
+
+<h2 id="s2">2. 快速启动指南</h2>
+
+<h3 id="s2-1">2.1 环境准备</h3>
+<ul>
+  <li><b>必需</b>：Docker &amp; Docker Compose、Git。</li>
+  <li><b>模型</b>：至少一个对话模型（LLM）+ 一个向量模型（Embedding）。本地 Ollama 需先运行 <code>ollama serve</code>；容器内访问宿主机 Ollama 地址为 <code>http://host.docker.internal:11434</code>（<span class="pill">高频踩坑</span> 填 <code>localhost:11434</code> 连不上）。</li>
+  <li>硬件无硬性门槛；使用本地模型时按模型规模准备 GPU / 内存。</li>
+</ul>
+
+<h3 id="s2-2">2.2 Docker Compose 启动</h3>
+<pre><code><span class="tk-c"># 1) 克隆并进入项目</span>
+git clone https://github.com/Tencent/WeKnora.git
+cd WeKnora
+
+<span class="tk-c"># 2) 生成环境配置（按需编辑 .env，文件内有逐项中文注释，标 ⚠️ 的为必填）</span>
+cp .env.example .env
+
+<span class="tk-c"># 3) 拉取镜像并启动核心服务</span>
+docker compose pull
+docker compose up -d
+
+<span class="tk-c"># 4) 验证后端存活</span>
+curl http://localhost:8080/health   <span class="tk-c"># 返回 {"status":"ok"}</span>
+
+<span class="tk-c"># 5) 浏览器访问 Web UI</span>
+<span class="tk-c">#    http://localhost        → 前端</span>
+<span class="tk-c">#    http://localhost:8080   → 后端 API（Swagger 在 GIN_MODE=debug 时开放）</span>
+<span class="tk-c">#    http://localhost:3000   → Langfuse（--profile langfuse 启动后）</span></code></pre>
+<div class="callout warn"><b>⚠️ 实战教训</b>：nginx 在启动时一次性解析 <code>app</code> 的容器 IP 并固定。此后只要重建 / 重启了 <code>app</code>（改 .env、升级、引擎重启后容器重建等），必须连带重启 <code>frontend</code>，否则静态页面能打开但所有 <code>/api</code> 请求 502。安全做法：<code>docker compose up -d --force-recreate app frontend</code>。完整案例见 <a href="#s16">第 16 章</a>。</div>
+
+<h3 id="s2-3">2.3 系统启动流程图</h3>
+<div class="diagram">
+<svg viewBox="0 0 960 150" xmlns="http://www.w3.org/2000/svg" font-size="12.5">
+  <defs><marker id="ar2" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 z" fill="#2e6cc4"/></marker></defs>
+  <style>text{fill:#1f2937}html[data-theme=dark] text{fill:#e5e7eb}.sb{fill:#eaf2fc;stroke:#2e6cc4;rx:8}html[data-theme=dark] .sb{fill:#1c2b47;stroke:#5b9bf0}.fl{stroke:#2e6cc4;fill:none;marker-end:url(#ar2)}html[data-theme=dark] .fl{stroke:#5b9bf0}</style>
+  <g>
+    <rect class="sb" x="8" y="40" width="110" height="56" rx="8"/><text x="20" y="62">cp .env.example</text><text x="30" y="80">.env 编辑</text>
+    <line class="fl" x1="118" y1="68" x2="140" y2="68"/>
+    <rect class="sb" x="142" y="40" width="100" height="56" rx="8"/><text x="158" y="62">compose</text><text x="166" y="80">pull 拉镜像</text>
+    <line class="fl" x1="242" y1="68" x2="264" y2="68"/>
+    <rect class="sb" x="266" y="40" width="104" height="56" rx="8"/><text x="276" y="62">postgres 启动</text><text x="286" y="80">redis 启动</text>
+    <line class="fl" x1="370" y1="68" x2="392" y2="68"/>
+    <rect class="sb" x="394" y="40" width="120" height="56" rx="8"/><text x="402" y="62">app 启动：自动</text><text x="402" y="80">DB 迁移(可关)</text>
+    <line class="fl" x1="514" y1="68" x2="536" y2="68"/>
+    <rect class="sb" x="538" y="40" width="112" height="56" rx="8"/><text x="548" y="62">docreader /</text><text x="556" y="80">frontend 就绪</text>
+    <line class="fl" x1="650" y1="68" x2="672" y2="68"/>
+    <rect class="sb" x="674" y="40" width="110" height="56" rx="8"/><text x="684" y="62">/health 返回</text><text x="690" y="80">status=ok</text>
+    <line class="fl" x1="784" y1="68" x2="806" y2="68"/>
+    <rect class="sb" x="808" y="40" width="140" height="56" rx="8"/><text x="818" y="62">注册账号 → 配模型</text><text x="818" y="80">→ 建库 → 上传 → 问答</text>
+  </g>
+  <text x="8" y="132" style="fill:#6b7280">可选 profile（neo4j / minio / langfuse / searxng / dex / 各向量库）随 --profile 一并拉起</text>
+</svg>
+<div class="figcap">图 2 · Docker Compose 启动流程</div>
+</div>
+
+<h3 id="s2-4">2.4 可选服务（Compose Profile）</h3>
+<table>
+<tr><th>Profile</th><th>说明</th><th>启动命令</th></tr>
+<tr><td>（默认）</td><td>核心服务（前端 + app + docreader + postgres/paradedb + redis）</td><td><code>docker compose pull &amp;&amp; docker compose up -d</code></td></tr>
+<tr><td><code>full</code></td><td>全部可选功能</td><td><code>docker compose --profile full pull &amp;&amp; docker compose --profile full up -d</code></td></tr>
+<tr><td><code>neo4j</code></td><td>知识图谱（Neo4j，:7474 管理界面）</td><td><code>docker compose --profile neo4j up -d</code></td></tr>
+<tr><td><code>minio</code></td><td>MinIO 对象存储（:9000 / :9001）</td><td><code>docker compose --profile minio up -d</code></td></tr>
+<tr><td><code>langfuse</code></td><td>Langfuse 可观测栈（:3000，含 ClickHouse）</td><td><code>docker compose --profile langfuse up -d</code></td></tr>
+<tr><td><code>searxng</code></td><td>SearXNG 自建元搜索</td><td><code>docker compose --profile searxng up -d</code></td></tr>
+<tr><td><code>dex</code></td><td>OIDC 认证测试身份源</td><td><code>docker compose --profile dex up -d</code></td></tr>
+<tr><td><code>qdrant / milvus / weaviate / doris</code></td><td>按需启用的替代向量库</td><td><code>docker compose --profile qdrant up -d</code> 等</td></tr>
+</table>
+<p>Profile 可叠加，如 <code>docker compose --profile neo4j --profile minio up -d</code>。停止：<code>docker compose down</code>。</p>
+
+<h3 id="s2-5">2.5 关键环境变量</h3>
+<p><code>.env.example</code> 按 A–J 分组（部署基础 / 数据与存储 / 检索与图谱 / 模型 / 文档解析 / 认证与空间 / Agent 与沙箱 / 可选集成 / 可观测性 / 安全调优），共约 150 个变量。常用如下：</p>
+<details><summary>部署与网络（A 组）常用变量</summary><div class="dbody">
+<table>
+<tr><th>变量</th><th>默认</th><th>说明</th></tr>
+<tr><td><code>WEKNORA_VERSION</code></td><td>latest</td><td>镜像版本标签，升级填目标 release tag（如 0.7.0，注意无 v 前缀差异按文件说明）</td></tr>
+<tr><td><code>APP_PORT</code> / <code>FRONTEND_PORT</code></td><td>8080 / 80</td><td>后端 / 前端宿主机映射端口</td></tr>
+<tr><td><code>GIN_MODE</code></td><td>release</td><td>debug 模式开启详细日志与 Swagger</td></tr>
+<tr><td><code>TZ</code> / <code>DEFAULT_LOCALE</code></td><td>Asia/Shanghai / zh-CN</td><td>时区与前端默认语言（zh-CN | en-US | ru-RU | ko-KR）</td></tr>
+<tr><td><code>AUTO_MIGRATE</code></td><td>true</td><td>启动时自动数据库迁移</td></tr>
+<tr><td><code>WEKNORA_BOOTSTRAP_SYSTEM_ADMIN_EMAIL</code></td><td>—</td><td>把指定邮箱用户提升为首个系统管理员（幂等，仅提权不降权）</td></tr>
+<tr><td><code>APP_EXTERNAL_URL</code></td><td>—</td><td>实例公网地址，IM 渠道图片/文件外链必需</td></tr>
+<tr><td><code>RESOURCE_URL_MODE</code></td><td>handle</td><td><code>public</code> 时 API 直接返回限时可读的文件直链，第三方无需二次鉴权</td></tr>
+<tr><td><code>MCP_PORT</code></td><td>8082</td><td>对外暴露的 MCP Server 端口</td></tr>
+</table>
+</div></details>
+<details><summary>数据与存储（B/C 组）常用变量</summary><div class="dbody">
+<table>
+<tr><th>变量</th><th>默认</th><th>说明</th></tr>
+<tr><td><code>DB_DRIVER</code> / <code>DB_HOST</code> / <code>DB_PASSWORD</code> ⚠️</td><td>postgres / postgres / postgres123!@#</td><td>主数据库，支持 postgres / mysql / sqlite</td></tr>
+<tr><td><code>REDIS_ADDR</code> / <code>REDIS_PASSWORD</code></td><td>redis:6379 / redis123!@#</td><td>Redis（Asynq 队列与流处理）；留空进入 Lite memory 模式</td></tr>
+<tr><td><code>MINIO_ENDPOINT</code> 等存储变量</td><td>—</td><td>对象存储后端选择：local / minio / cos / tos / s3 / oss / ks3 / obs</td></tr>
+<tr><td><code>NEO4J_ENABLE</code> / <code>NEO4J_URI</code> / <code>NEO4J_PASSWORD</code></td><td>false</td><td>知识图谱；true + <code>--profile neo4j</code> 启用图谱抽取</td></tr>
+</table>
+</div></details>
+<details><summary>Agent / 沙箱 / 安全（F/G/J 组）常用变量</summary><div class="dbody">
+<table>
+<tr><th>变量</th><th>说明</th></tr>
+<tr><td><code>DISABLE_REGISTRATION</code></td><td>true 时注册模式强制为 invite_only，只能通过邀请加入</td></tr>
+<tr><td><code>WEKNORA_SANDBOX_DOCKER_ENABLED</code></td><td>回退开关，允许在「设置→网络安全」中开启会话级 Docker 沙箱（默认关闭，docker.sock 等同宿主机 root）</td></tr>
+<tr><td><code>SYSTEM_AES_KEY</code></td><td>API Key / MCP 凭据 AES-256-GCM 静态加密密钥</td></tr>
+<tr><td><code>LOG_LEVEL</code> / <code>LLM_DEBUG_LOG</code></td><td>日志级别；LLM 调试日志把每次大模型请求/响应写入独立文件</td></tr>
+</table>
+</div></details>
+
+<h2 id="s3">3. 首次使用与模型配置</h2>
+
+<h3 id="s3-1">3.1 注册、登录与工作空间</h3>
+<ul>
+<li>首次访问 <code>http://localhost</code> 落到登录页，注册是同页页签（仅注册模式为 <code>self_serve</code> 时显示，前端读 <code>/auth/config</code> 决定）。系统没有内置默认账号。</li>
+<li>用户名 2–50 字符；界面注册要求密码 8–32 位且含字母和数字。注册后自动获得一个专属工作空间，你是该空间的 <b>Owner</b>。</li>
+<li><b>空间 Owner ≠ 系统管理员</b>：Owner 管本空间的成员/模型/知识库；系统管理员管整个部署（全局设置、任务队列、平台 API Key、跨空间审计、密码重置），首个系统管理员需用 <code>WEKNORA_BOOTSTRAP_SYSTEM_ADMIN_EMAIL</code> 显式指定。</li>
+<li>团队部署建议注册第一个账号后关闭公开注册（<code>DISABLE_REGISTRATION=true</code> 或「设置→系统」改 <code>auth.registration_mode</code>），之后用邀请链接加人。</li>
+<li>桌面版 / Lite 版免注册，启动即创建本地账号。</li>
+</ul>
+
+<h3 id="s3-2">3.2 配置模型（LLM / Embedding / Rerank / VLM / ASR）</h3>
+<p>WeKnora 的模型配置是<b>按知识库</b>走的：新建知识库后弹出初始化向导，逐步配置。也可在「设置 → 模型」中管理空间级/内置模型（YAML 声明式内置模型配置，多空间共享）。</p>
+<table>
+<tr><th>模型类型</th><th>是否必需</th><th>作用与说明</th></tr>
+<tr><td>对话模型 LLM</td><td>必需</td><td>生成回答；支持 OpenAI / Azure OpenAI / Claude / DeepSeek / Qwen / 智谱 / 混元 / 豆包 / Gemini / MiniMax / NVIDIA / Novita / SiliconFlow / OpenRouter / Requesty / LiteLLM / Ollama 等 20+ 厂商；可按模型开启思考模式与 Prompt Cache</td></tr>
+<tr><td>向量模型 Embedding</td><td>必需</td><td>文档向量化；Ollama / BGE / GTE / 智谱 / OpenAI 兼容接口。<b>建库后不要更换</b>，换了需重建索引；默认 1024 维（pgvector HNSW）</td></tr>
+<tr><td>重排 Rerank</td><td>可选</td><td>混合召回后重排，提升精度；支持火山引擎 Rerank（自动分批）、腾讯云 LKEAP 等</td></tr>
+<tr><td>图片理解 VLM</td><td>可选</td><td>图片内容描述，支撑多模态问答与自动打标</td></tr>
+<tr><td>语音转写 ASR</td><td>可选</td><td>音频文档转文字</td></tr>
+<tr><td>图谱抽取模型</td><td>可选</td><td>实体 / 关系抽取（需 Neo4j），向导内可试抽取预览</td></tr>
+<tr><td>问题预生成</td><td>可选</td><td>为分块预生成问题，改善召回与推荐问题</td></tr>
+</table>
+<div class="callout">配置项都可用向导中的「测试 / check」按钮先验证连通性（对应 <code>/api/v1/initialization/remote/check</code>、<code>/embedding/test</code>、<code>/rerank/check</code>、<code>/asr/check</code>、<code>/multimodal/test</code> 等端点），再保存。</div>
+
+<h2 id="s4">4. 知识库：创建、上传与解析</h2>
+
+<h3 id="s4-1">4.1 完整使用流程步骤图</h3>
+<div class="steps">
+  <div class="step"><b>启动服务</b><span>docker compose up -d，访问 localhost</span></div>
+  <div class="step"><b>注册登录</b><span>获得专属空间，成为 Owner</span></div>
+  <div class="step"><b>创建知识库</b><span>选类型：document / faq</span></div>
+  <div class="step"><b>配置模型</b><span>初始化向导选 LLM + Embedding，测试连通</span></div>
+  <div class="step"><b>上传文档</b><span>拖拽文件 / URL 导入 / 文件夹导入，确认解析选项</span></div>
+  <div class="step"><b>等待解析</b><span>pending → processing → finalizing → completed</span></div>
+  <div class="step"><b>检索问答</b><span>选择知识库提问，带引用流式回答</span></div>
+  <div class="step"><b>扩展发布</b><span>Agent / Wiki / IM / 嵌入 Widget / API / MCP</span></div>
+</div>
+
+<h3 id="s4-2">4.2 上传、解析与分块</h3>
+<ul>
+<li><b>导入方式</b>：拖拽上传（批量）、网页 URL 导入、文件夹导入（保留树形目录结构）、本地 HTML 上传、在线录入；Chrome 插件可直接采集网页。</li>
+<li><b>支持格式</b>：PDF / Word / Txt / Markdown / HTML / EPUB / MHTML / 图片 / CSV / Excel / PPT / JSON / XMind / 音频（ASR）。Office 文档可由 <b>anydoc</b> 在 Go 进程内解析（构建开关 <code>WITH_ANYDOC</code>）。</li>
+<li><b>解析引擎</b>：内置 docreader、OpenDataLoader、PaddleOCR-VL 等，可在上传确认对话框或 <code>process_config</code> 中按批次覆盖；支持文档重新解析（reparse）与批量重新解析。</li>
+<li><b>分块</b>：自适应三层分块 / 父子分块；chunkSize 100–10000、chunkOverlap、分隔符均可配；解析追踪时间线逐阶段展示进度，可中止。</li>
+<li><b>分块编辑与版本历史</b>：界面直接编辑检索分块，逐版本 diff 与回滚，编辑后自动重建索引；支持文档自定义元数据与多标签。</li>
+<li><b>自动打标签</b>：解析完成后从知识库已有标签中选择匹配项增量关联（不新建、不覆盖人工标签）。</li>
+</ul>
+
+<h3 id="s4-3">4.3 数据源自动同步</h3>
+<p>支持从外部平台自动同步知识：飞书知识库 / 飞书云盘 / Lark / GitLab / 腾讯 IMA / Notion / 语雀 / RSS 订阅，支持增量与全量同步；凭据 AES-256-GCM 加密存储。在「设置 → 数据源」中配置连接。</p>
+
+<h2 id="s5">5. 检索与对话问答</h2>
+<h4>检索策略（多路混合）</h4>
+<table>
+<tr><th>检索方式</th><th>说明</th></tr>
+<tr><td>BM25 稀疏召回</td><td>关键词级倒排检索，适合精确词匹配</td></tr>
+<tr><td>Dense 稠密召回</td><td>Embedding 向量相似度检索，pgvector HNSW（1024 维）加速；支持跨向量库扇出</td></tr>
+<tr><td>GraphRAG 图谱增强</td><td>查询 Neo4j 实体关系网络，扩展答案的关联广度（需开启知识图谱）</td></tr>
+<tr><td>父子分块</td><td>小块精准命中、大块上下文回填</td></tr>
+<tr><td>Rerank 重排</td><td>对召回结果精排，附带段落清洗</td></tr>
+<tr><td>知识搜索 API</td><td><code>POST /knowledge-search</code> 仅检索不生成，返回结构化 JSON</td></tr>
+<tr><td>端到端评估</td><td>检索+生成全链路可视化，评估召回命中率、BLEU / ROUGE 等指标</td></tr>
+</table>
+<h4>对话能力</h4>
+<ul>
+<li><b>快速问答</b>：RAG 流水线（检索 → 生成 → 带出处），SSE 流式 Markdown 渲染，引用浮层 / 引用抽屉区分网络与知识库来源。</li>
+<li><b>智能推理（ReAct Agent）</b>：自主决定检索几轮、是否联网、调用哪些工具；内置 agent_id <code>builtin-smart-reasoning</code>。</li>
+<li><b>对话策略</b>：在线编辑 Prompt、调节检索阈值、多轮上下文感知、按 Agent 引用输出开关、思考模式。</li>
+<li><b>推荐问题与追问</b>：基于知识库内容自动生成推荐问题与答后追问。</li>
+<li><b>临时附件</b>：会话内临时上传图片 / 文档，异步解析后一次性使用（合并限额）。</li>
+<li><b>长期记忆</b>：跨会话记忆 profile / preference / fact / task / interest，自动抽取需用户确认，Agent 可调用 <code>search_memory</code>。</li>
+<li><b>会话管理</b>：按来源（Web / IM / 嵌入）筛选分组、搜索、置顶、批量管理、Markdown 导出；上下文压缩。</li>
+</ul>
+
+<h2 id="s6">6. Wiki 模式与知识图谱</h2>
+<details open><summary>Wiki 模式：Agent 自动生成知识库</summary><div class="dbody">
+<p>Wiki 模式让 Agent 从原始文档自治生成结构化、相互链接的 Markdown Wiki 页面，并构建可视化知识图谱。支持：Wiki 浏览器 + 文件夹层级导航、浏览器内人工编辑、页面版本历史（快照 + 行级 diff + 一键回滚）、对话引用抽屉展示 Wiki 工具结果。大库场景由独立任务队列 + 死信队列支撑（可入库万级文档）。</p>
+</div></details>
+<details open><summary>知识图谱（GraphRAG）启用步骤</summary><div class="dbody">
+<ol>
+<li>编辑 <code>.env</code>：<code>NEO4J_ENABLE=true</code>、<code>NEO4J_URI=bolt://neo4j:7687</code>、<code>NEO4J_USERNAME=neo4j</code>、<code>NEO4J_PASSWORD=...</code></li>
+<li>启动 Neo4j：<code>docker compose --profile neo4j up -d</code></li>
+<li>在知识库设置（初始化向导「实体关系抽取」）中启用，并按提示配置抽取模型；可用 <code>/initialization/extract/text-relation</code> 试抽取预览效果。</li>
+<li>上传文档后系统自动提取实体与关系生成图谱；对话时自动查询图谱辅助检索。</li>
+<li>查看图谱：<code>http://localhost:7474</code> 执行 <code>match (n) return (n)</code>，或在 Wiki 图谱可视化页面查看。</li>
+</ol>
+</div></details>
+
+<h2 id="s7">7. Agent、技能与沙箱</h2>
+<ul>
+<li><b>自定义 Agent</b>：「智能体」页创建，可挂知识库、MCP 工具、网络搜索、技能；按 Agent 配置 LLM 超时与引用开关。</li>
+<li><b>技能目录</b>：空间级技能目录，从 ClawHub / SkillHub / git / zip 安装技能；支持按沙箱快照、实时进度、文件浏览/编辑、个人与空间环境变量。</li>
+<li><b>会话级沙箱</b>：Docker / E2B / Cube 三种后端（v0.8 起移除 Local 宿主机进程后端）。一个会话一个长驻容器，脚本、<code>shell_exec</code>、附件暂存、产物收集都在同一容器内。Docker 后端<b>默认关闭</b>（docker.sock 等同宿主机 root），系统管理员在「设置 → 系统 → 网络安全」显式开启或设 <code>WEKNORA_SANDBOX_DOCKER_ENABLED=true</code>；按空间配置 CPU / 内存 / 网络 / TTL 策略。</li>
+<li><b><code>@Skill / @MCP</code> 提及</b>：在对话中 @ 引用以按轮次范围化 Agent 运行时；会话内支持 MCP OAuth 授权。</li>
+<li><b>工具生态</b>：内置工具 + MCP 工具（含 OAuth2 远程服务）+ 网络搜索（11 种后端）+ <code>final_answer</code> 工具 + 并行工具调用；MCP 返回图片可由 VLM 自动描述。</li>
+</ul>
+
+<h2 id="s8">8. API 调用与认证</h2>
+<p>统一前缀 <code>/api/v1</code>，约 360 个端点；完整契约见 <code>docs/swagger.json</code>（GIN_MODE=debug 时可访问 Swagger UI）与 <code>website-docs/04-api/</code>。</p>
+<h4>三种认证方式</h4>
+<table>
+<tr><th>方式</th><th>请求头</th><th>适用</th></tr>
+<tr><td>JWT</td><td><code>Authorization: Bearer &lt;token&gt;</code></td><td>浏览器 / 交互式调用，登录接口签发</td></tr>
+<tr><td>API Key</td><td><code>X-API-Key: &lt;key&gt;</code></td><td>服务端集成；细粒度能力授权（retrieve / chat / ingest / manage_kbs 等）+ 按 KB 限制 + 节流 last_used 追踪；另有平台级 API Key 用于控制面自动化</td></tr>
+<tr><td>指定空间</td><td><code>X-Tenant-ID: &lt;id&gt;</code></td><td>多空间用户切换当前工作空间</td></tr>
+</table>
+
+<h3 id="s8-1">8.1 常用 curl 示例（可直接复制运行）</h3>
+<pre><code><span class="tk-v">BASE</span>=http://localhost:8080/api/v1
+
+<span class="tk-c"># 1) 注册首个账号</span>
+curl -s -X POST <span class="tk-p">$BASE</span>/auth/register -H <span class="tk-s">"Content-Type: application/json"</span> \
+  -d <span class="tk-s">'{"username":"admin","email":"admin@example.com","password":"pass123456"}'</span>
+
+<span class="tk-c"># 2) 登录取 JWT</span>
+<span class="tk-v">TOKEN</span>=$(curl -s -X POST <span class="tk-p">$BASE</span>/auth/login -H <span class="tk-s">"Content-Type: application/json"</span> \
+  -d <span class="tk-s">'{"email":"admin@example.com","password":"pass123456"}'</span> | jq -r <span class="tk-s">'.token'</span>)
+<span class="tk-v">AUTH</span>=<span class="tk-s">"Authorization: Bearer $TOKEN"</span>
+
+<span class="tk-c"># 3) 创建知识库</span>
+<span class="tk-v">KB_ID</span>=$(curl -s -X POST <span class="tk-p">$BASE</span>/knowledge-bases -H <span class="tk-s">"$AUTH"</span> -H <span class="tk-s">"Content-Type: application/json"</span> \
+  -d <span class="tk-s">'{"name":"我的知识库","description":"demo","type":"document"}'</span> | jq -r <span class="tk-s">'.data.id'</span>)
+
+<span class="tk-c"># 4) 初始化模型与分块配置（本地 Ollama 示例）</span>
+curl -s -X POST <span class="tk-p">$BASE</span>/initialization/initialize/<span class="tk-p">$KB_ID</span> -H <span class="tk-s">"$AUTH"</span> -H <span class="tk-s">"Content-Type: application/json"</span> -d <span class="tk-s">'{
+  "llm":       {"source":"local","modelName":"qwen3:8b"},
+  "embedding": {"source":"local","modelName":"bge-m3","dimension":1024},
+  "rerank":    {"enabled":false},
+  "multimodal":{"enabled":false},
+  "documentSplitting":{"chunkSize":512,"chunkOverlap":50,"separators":["\n\n","\n","。"]},
+  "nodeExtract":{"enabled":false},
+  "questionGeneration":{"enabled":false}}'</span>
+
+<span class="tk-c"># 5) 上传文档（multipart，字段名 file），随后轮询 GET /knowledge-bases/$KB_ID/knowledge 直到 parse_status=completed</span>
+curl -s -X POST <span class="tk-p">$BASE</span>/knowledge-bases/<span class="tk-p">$KB_ID</span>/knowledge/file -H <span class="tk-s">"$AUTH"</span> -F <span class="tk-s">"file=@./demo.pdf"</span>
+
+<span class="tk-c"># 6) 创建会话</span>
+<span class="tk-v">SESSION_ID</span>=$(curl -s -X POST <span class="tk-p">$BASE</span>/sessions -H <span class="tk-s">"$AUTH"</span> -H <span class="tk-s">"Content-Type: application/json"</span> \
+  -d <span class="tk-s">'{"title":"第一次对话"}'</span> | jq -r <span class="tk-s">'.data.id'</span>)
+
+<span class="tk-c"># 7) 知识问答（SSE 流式）</span>
+curl -N -X POST <span class="tk-p">$BASE</span>/knowledge-chat/<span class="tk-p">$SESSION_ID</span> -H <span class="tk-s">"$AUTH"</span> -H <span class="tk-s">"Content-Type: application/json"</span> \
+  -d <span class="tk-s">'{"query":"这份文档讲了什么？","knowledge_base_ids":["'$KB_ID'"]}'</span>
+
+<span class="tk-c"># 7b) Agent 对话（同为 SSE）</span>
+curl -N -X POST <span class="tk-p">$BASE</span>/agent-chat/<span class="tk-p">$SESSION_ID</span> -H <span class="tk-s">"$AUTH"</span> -H <span class="tk-s">"Content-Type: application/json"</span> \
+  -d <span class="tk-s">'{"query":"总结文档要点","agent_enabled":true,"agent_id":"builtin-smart-reasoning","knowledge_base_ids":["'$KB_ID'"]}'</span>
+
+<span class="tk-c"># 8) 仅检索不生成</span>
+curl -s -X POST <span class="tk-p">$BASE</span>/knowledge-search -H <span class="tk-s">"$AUTH"</span> -H <span class="tk-s">"Content-Type: application/json"</span> \
+  -d <span class="tk-s">'{"query":"关键字","knowledge_base_ids":["'$KB_ID'"]}'</span>
+
+<span class="tk-c"># 9) 创建 API Key（服务端集成推荐）</span>
+curl -s -X POST <span class="tk-p">$BASE</span>/tenants/<span class="tk-p">$TENANT_ID</span>/api-keys -H <span class="tk-s">"$AUTH"</span> -H <span class="tk-s">"Content-Type: application/json"</span> \
+  -d <span class="tk-s">'{"name":"ci-bot","full_access":true}'</span>
+<span class="tk-c"># 之后所有请求改用：curl -s $BASE/knowledge-bases -H "X-API-Key: &lt;key&gt;"</span></code></pre>
+<div class="callout">问答请求体还支持 <code>knowledge_ids</code>（限定单文档）、<code>web_search_enabled</code>、<code>summary_model_id</code>、<code>mcp_service_ids</code>、<code>skill_names</code>、<code>images</code> / <code>attachment_uploads</code>（多模态附件）等字段；<code>?resource_urls=public</code> 可让响应直接返回限时文件直链。</div>
+
+<h2 id="s9">9. MCP Server</h2>
+<p>WeKnora 提供两个方向的 MCP 能力：</p>
+<ul>
+<li><b>作为 MCP 客户端</b>：在「设置 → MCP 服务」集中管理外部 MCP 服务（SSE / HTTP Streamable / Stdio 三种传输），支持连接测试（列出工具清单与 schema）、启停、超时重试、API Key/Bearer 鉴权、OAuth2 与会话内 OAuth 授权；Agent 推理时可调用这些工具。</li>
+<li><b>作为 MCP Server 供外部调用</b>：官方 PyPI 包 <code>tencent-weknora-mcp</code>，共 <b>29 个工具</b>，支持 stdio / SSE / HTTP 三种传输，端口默认 8082；v0.7.2 起新增 <code>create_knowledge_from_text</code>、<code>list_shared_knowledge_bases</code>，含人机审批与多传输。另支持内置 MCP 服务（BUILTIN_MCP_SERVICES.md）。</li>
+</ul>
+<details><summary>MCP Server 安装与客户端配置（Claude Desktop / Cursor）</summary><div class="dbody">
+<pre><code><span class="tk-c"># 安装（推荐 uv 运行）</span>
+pip install tencent-weknora-mcp
+<span class="tk-c"># 或：uvx --from tencent-weknora-mcp weknora-mcp-server</span></code></pre>
+<pre><code><span class="tk-c">// Claude Desktop / Cursor 的 mcpServers 配置</span>
+{
+  <span class="tk-k">"mcpServers"</span>: {
+    <span class="tk-k">"weknora"</span>: {
+      <span class="tk-k">"command"</span>: <span class="tk-s">"uv"</span>,
+      <span class="tk-k">"args"</span>: [<span class="tk-s">"--directory"</span>, <span class="tk-s">"/path/WeKnora/mcp-server"</span>, <span class="tk-s">"run"</span>, <span class="tk-s">"run_server.py"</span>],
+      <span class="tk-k">"env"</span>: {
+        <span class="tk-k">"WEKNORA_API_KEY"</span>: <span class="tk-s">"your_api_key_here"</span>,
+        <span class="tk-k">"WEKNORA_BASE_URL"</span>: <span class="tk-s">"http://localhost:8080/api/v1"</span>
+      }
+    }
+  }
+}</code></pre>
+<p>需要先在 WeKnora「空间设置」中创建一个具备相应能力的 API Key。更多示例见仓库 <code>mcp-server/MCP_CONFIG.md</code> 与 <code>mcp-server/EXAMPLES.md</code>。</p>
+</div></details>
+
+<h2 id="s10">10. 多模态</h2>
+<ul>
+<li><b>图片理解（VLM）</b>：知识库可配置 VLM，自动描述图片内容、支撑图片问答；MCP 返回的图片也会由 VLM 自动描述后进入推理。</li>
+<li><b>语音（ASR）</b>：音频文档转写为文字入库；会话支持语音输入。</li>
+<li><b>多模态对话</b>：问答请求携带 <code>images</code> / <code>attachment_uploads</code>，会话级临时附件支持图片与文档合并限额。</li>
+<li><b>图片渲染与外链</b>：<code>resource://</code> 引用经 <code>/files</code> 鉴权代理或 <code>RESOURCE_URL_MODE=public</code> 直链返回，适配 IM / 第三方 App。</li>
+</ul>
+
+<h2 id="s11">11. 集成与发布（IM / 嵌入 / 多端客户端）</h2>
+<table>
+<tr><th>渠道</th><th>说明</th></tr>
+<tr><td>IM 集成</td><td>企业微信 / 飞书 / Lark（国际版）/ QQBot / Slack / Telegram / 钉钉 / Mattermost / 微信 / 云之家；支持 WebSocket（云之家）、图片消息、Markdown 回复、引用回复、线程会话、斜杠命令、QA 队列、空间级频道总览与会话治理；需配置 <code>APP_EXTERNAL_URL</code> 使资源外链可达</td></tr>
+<tr><td>网站嵌入 Widget</td><td>将智能体以挂件形式发布到外部站点；支持域名白名单、限流、安全模式 Token 交换（见 docs/embed-secure-mode.md / embed-subdomain.md）</td></tr>
+<tr><td>Chrome 插件</td><td>浏览器中选中文本 / 图片 / 整页一键采集到知识库</td></tr>
+<tr><td>微信小程序</td><td>轻量移动端：配置 API、选知识库、导入 URL、微信内提问</td></tr>
+<tr><td>weknora CLI</td><td>Go 命令行（v0.10）：知识管理、混合检索、Agent 优先线协议（NDJSON、--dry-run）、<code>mcp serve</code>、auth/profile 统一、session stop</td></tr>
+<tr><td>Go SDK / 桌面端</td><td>client/ 提供 Go SDK；桌面端支持空间切换、免注册 Lite 模式</td></tr>
+<tr><td>ClawHub Skill / DeepSeek Harness 插件</td><td>ClawHub 平台技能（上传 / 检索 / 管理）；npm 包 <code>@wxg-prc-cpg/dsh-weknora</code> 为编码 Agent 提供 4 个只读检索工具（weknora_search / read_document / ask / list_knowledge_bases）</td></tr>
+</table>
+
+<h2 id="s12">12. 权限、安全与可观测性</h2>
+<ul>
+<li><b>RBAC</b>：企业级多空间，四级角色矩阵 <b>Owner / Admin / Contributor / Viewer</b>，按知识库的资源归属，每空间审计日志，invite-only 准入，受控自助创建工作区，跨空间超级管理员，管理员密码重置（会话吊销）。详见 <code>docs/RBAC说明.md</code>。</li>
+<li><b>认证</b>：JWT 登录 + API Key + OIDC（ID Token JWKS 验签，可用 Dex profile 测试）；可选复杂密码策略。</li>
+<li><b>安全</b>：API Key 与 MCP / 数据源凭据 AES-256-GCM 静态加密 + 平滑轮换；app↔docreader gRPC TLS + Token；Redis TLS；防 SSRF HTTP 客户端；密钥响应脱敏；沙箱隔离与按配置网络策略；官方建议部署在内网，勿直接暴露公网。</li>
+<li><b>可观测性</b>：集成 <b>Langfuse</b>（唯一追踪后端）追踪 ReAct 循环、Token 消耗、工具调用与任务流水线，OTLP/OTel + W3C traceparent 跨服务传播；内置 Langfuse 风格文档解析追踪时间线（Span 树、逐阶段进度、可中止）；系统管理员运行时任务队列面板（队列深度、按模型并发、失败任务排查与手动重试、分阶段 Worker 池治理）。</li>
+<li><b>任务管理</b>：MQ 异步任务（Asynq/Redis），core / 后处理 / enrichment / maintenance + 弹性共享池 + Wiki 独立池；版本升级自动数据库迁移。</li>
+</ul>
+
+<h2 id="s13">13. 全功能点清单</h2>
+
+<h3>13.1 知识库管理</h3>
+<table>
+<tr><th style="width:22%">功能</th><th>说明</th></tr>
+<tr><td>多类型知识库</td><td>文档库（document）与 FAQ 问答对库，支持文件夹导入、URL 导入、在线录入。</td></tr>
+<tr><td>文件夹树</td><td>上传保留原始目录结构，侧栏树形浏览，可重命名文件夹与重新归档文档。</td></tr>
+<tr><td>文档多标签与批量操作</td><td>多标签管理、框选（marquee）多选、批量重新解析、批量打标签（自动预选公共标签）。</td></tr>
+<tr><td>分块编辑与版本历史</td><td>界面直接编辑检索分块，逐版本快照 + diff + 一键回滚，自动重建索引；生成问题可增删改。</td></tr>
+<tr><td>文档自定义元数据</td><td>为文档维护自定义元数据字段，辅助过滤与管理。</td></tr>
+<tr><td>文档预览 / 知识搜索入口</td><td>文档在线预览；全局知识搜索入口快速定位内容。</td></tr>
+<tr><td>知识库复制 / 置顶 / 共享空间</td><td>整库复制、置顶收藏、跨空间共享知识库。</td></tr>
+<tr><td>FAQ 管理</td><td>问答对管理增强：筛选、打标签、导出、导入结果追踪。</td></tr>
+<tr><td>按批次解析配置</td><td>上传确认对话框或 <code>process_config</code> 覆盖解析引擎、分块、多模态、图谱抽取与问题生成；reparse 可调整。</td></tr>
+<tr><td>文档自动打标签 / 自动摘要</td><td>解析后自动关联已有标签、自动生成摘要。</td></tr>
+<tr><td>活动审计</td><td>按知识库的活动审计追踪。</td></tr>
+<tr><td>端到端评估</td><td>检索+生成全链路可视化测试，评估召回命中率、BLEU / ROUGE。</td></tr>
+</table>
+
+<h3>13.2 文档解析</h3>
+<table>
+<tr><th style="width:22%">功能</th><th>说明</th></tr>
+<tr><td>多格式解析</td><td>PDF / Word / Txt / Markdown / HTML / EPUB / MHTML / 图片 / CSV / Excel / PPT / JSON / XMind / 音频，共十余种。</td></tr>
+<tr><td>docreader 解析服务</td><td>独立 Python gRPC 服务（:50051），异步解析，含 OCR。</td></tr>
+<tr><td>anydoc 进程内解析</td><td>Office 文档在 Go 进程内由 anydoc 引擎解析（构建开关 WITH_ANYDOC），减少依赖。</td></tr>
+<tr><td>多种解析引擎</td><td>内置 docreader、OpenDataLoader、PaddleOCR-VL 等可选引擎，按库 / 按批次选择。</td></tr>
+<tr><td>OCR / VLM / ASR</td><td>扫描件 OCR、图片 VLM 描述、音频 ASR 转写。</td></tr>
+<tr><td>分块策略</td><td>自适应三层分块、父子分块；chunkSize / overlap / 分隔符可配；实时分块调试面板。</td></tr>
+<tr><td>解析追踪时间线</td><td>Langfuse 风格 Span 树逐阶段展示解析进度，支持中止与重新解析。</td></tr>
+<tr><td>异步任务与状态</td><td>pending → processing → finalizing → completed，列表实时刷新。</td></tr>
+</table>
+
+<h3>13.3 检索引擎</h3>
+<table>
+<tr><th style="width:22%">功能</th><th>说明</th></tr>
+<tr><td>混合检索</td><td>BM25 稀疏 + Dense 稠密多路召回，多维度索引。</td></tr>
+<tr><td>GraphRAG</td><td>Neo4j 知识图谱增强检索，自动查询实体关系网络。</td></tr>
+<tr><td>Rerank 重排</td><td>召回结果精排 + 段落清洗；火山引擎 Rerank 自动分批、腾讯云 LKEAP 等。</td></tr>
+<tr><td>跨向量库扇出</td><td>单个知识库检索可跨多个向量库实例执行。</td></tr>
+<tr><td>pgvector HNSW</td><td>1024 维 HNSW 索引加速向量检索。</td></tr>
+<tr><td>知识搜索 API</td><td>仅检索不生成的结构化检索接口，供程序化集成。</td></tr>
+<tr><td>检索阈值与策略</td><td>对话中可调检索阈值；按知识库配置检索策略。</td></tr>
+</table>
+
+<h3>13.4 会话与问答</h3>
+<table>
+<tr><th style="width:22%">功能</th><th>说明</th></tr>
+<tr><td>RAG 快速问答</td><td>检索相关片段 → LLM 生成带出处回答，SSE 流式 Markdown。</td></tr>
+<tr><td>ReAct 智能推理</td><td>多步渐进推理，自主编排检索 / 工具 / 沙箱 / 联网。</td></tr>
+<tr><td>引用与 RAG 进度</td><td>引用浮层与抽屉（区分网络 / 知识库来源），RAG 流水线分阶段进度。</td></tr>
+<tr><td>对话策略配置</td><td>在线 Prompt 编辑、检索阈值调节、多轮上下文感知、兜底回复、思考模式。</td></tr>
+<tr><td>推荐问题与追问</td><td>自动生成推荐问题与答后追问。</td></tr>
+<tr><td>临时附件</td><td>会话级临时上传图片 / 文档，异步解析一次性使用，合并限额。</td></tr>
+<tr><td>长期记忆</td><td>跨会话记忆（profile / preference / fact / task / interest），自动抽取需确认，search_memory 工具。</td></tr>
+<tr><td>会话管理</td><td>按来源筛选分组、搜索、置顶、批量管理、内联重命名、Markdown 导出、对话产物 / 问题大纲 / 时间戳、上下文压缩。</td></tr>
+<tr><td>多模态问答</td><td>图片 / 附件随问题发送，VLM 理解，语音输入（ASR）。</td></tr>
+</table>
+
+<h3>13.5 Agent 与沙箱</h3>
+<table>
+<tr><th style="width:22%">功能</th><th>说明</th></tr>
+<tr><td>自定义 Agent</td><td>可视化创建 Agent，挂知识库 / MCP 工具 / 网络搜索 / 技能；模型就绪校验。</td></tr>
+<tr><td>技能目录</td><td>空间级技能安装（ClawHub / SkillHub / git / zip），按沙箱快照、实时进度、文件浏览编辑、环境变量。</td></tr>
+<tr><td>会话级沙箱</td><td>Docker / E2B / Cube 后端，会话级常驻容器，shell_exec / 文件工具 / 产物收集 / 网络策略；Docker 需显式开启。</td></tr>
+<tr><td>工具调用</td><td>内置工具 + MCP（OAuth2 / 会话内 OAuth）+ 网络搜索；并行工具调用；final_answer 工具。</td></tr>
+<tr><td>@Skill / @MCP 提及</td><td>对话中 @ 引用，按轮次范围化 Agent 运行时。</td></tr>
+<tr><td>Wiki 模式</td><td>Agent 自治生成相互链接的 Markdown Wiki 与图谱，人工编辑、版本历史、行级 diff、一键回滚。</td></tr>
+<tr><td>数据分析 Agent</td><td>依托沙箱执行代码做数据分析的内置 Agent 场景。</td></tr>
+</table>
+
+<h3>13.6 数据源与网络搜索</h3>
+<table>
+<tr><th style="width:22%">功能</th><th>说明</th></tr>
+<tr><td>数据源导入</td><td>飞书知识库 / 飞书云盘 / Lark / GitLab / 腾讯 IMA / Notion / 语雀 / RSS，增量与全量同步，凭据加密。</td></tr>
+<tr><td>网络搜索</td><td>DuckDuckGo / Bing / Google / Tavily / Baidu / Ollama / SearXNG / Keenable / 智谱 AI / Exa / Metaso，共 11 种。</td></tr>
+<tr><td>内置 MCP 服务</td><td>预置常用 MCP 服务一键启用（见 docs/BUILTIN_MCP_SERVICES.md）。</td></tr>
+</table>
+
+<h3>13.7 系统集成与发布</h3>
+<table>
+<tr><th style="width:22%">功能</th><th>说明</th></tr>
+<tr><td>IM 渠道</td><td>企业微信 / 飞书 / Lark / QQBot / Slack / Telegram / 钉钉 / Mattermost / 微信 / 云之家；图片消息、Markdown / 引用回复、线程、斜杠命令、QA 队列、来源标记。</td></tr>
+<tr><td>网站嵌入 Widget</td><td>挂件发布智能体，域名白名单、限流、安全模式 Token 交换、子域名模式。</td></tr>
+<tr><td>REST API</td><td>约 360 端点，JWT / API Key / Tenant 三种认证，Swagger 契约与集成调试台。</td></tr>
+<tr><td>权限范围 API Key</td><td>能力级授权（retrieve/chat/ingest/manage_kbs 等）+ 按 KB 限制 + last_used 追踪；平台级 API Key 管控制面。</td></tr>
+<tr><td>MCP Server</td><td>官方 PyPI 包 tencent-weknora-mcp，29 工具，stdio / SSE / HTTP 三传输。</td></tr>
+<tr><td>多端客户端</td><td>Web UI、weknora CLI、Go SDK、桌面端、Chrome 插件、微信小程序、ClawHub Skill、DeepSeek Harness 插件。</td></tr>
+<tr><td>微信对话开放平台</td><td>零代码在微信生态（公众号 / 小程序）部署智能问答。</td></tr>
+</table>
+
+<h3>13.8 模型与基础设施</h3>
+<table>
+<tr><th style="width:22%">功能</th><th>说明</th></tr>
+<tr><td>20+ 模型厂商</td><td>OpenAI / Azure OpenAI / Anthropic / DeepSeek / Qwen / 智谱 / 混元 / 豆包 / Gemini / MiniMax / NVIDIA / Novita / SiliconFlow / OpenRouter / Requesty / LiteLLM / Ollama。</td></tr>
+<tr><td>模型管理</td><td>集中配置、YAML 声明式内置模型、按知识库选模型、思考模式与 Embedding 维度覆盖、交互式模型调试器、WeKnora Cloud 托管模型。</td></tr>
+<tr><td>8 种向量库</td><td>PostgreSQL(pgvector) / Elasticsearch / OpenSearch / Milvus / Weaviate / Qdrant / Apache Doris / 腾讯云 VectorDB。</td></tr>
+<tr><td>8 种对象存储</td><td>本地 / MinIO / 腾讯COS / 火山TOS / AWS S3(IAM Role/IRSA) / 阿里OSS / 金山KS3 / 华为OBS；每空间多实例存储后端，按 KB 绑定。</td></tr>
+<tr><td>部署形态</td><td>本地 / Docker Compose / Kubernetes (Helm) / Lite 单机模式；支持私有化离线部署；VitePress 文档站可独立 Docker 部署。</td></tr>
+</table>
+
+<h3>13.9 权限、安全与可观测性</h3>
+<table>
+<tr><th style="width:22%">功能</th><th>说明</th></tr>
+<tr><td>空间 RBAC</td><td>Owner / Admin / Contributor / Viewer 四级角色矩阵，按 KB 资源归属，成员管理与邀请，每空间审计日志。</td></tr>
+<tr><td>系统管理员</td><td>平台级管理：全局设置、运行时队列、平台 API Key、跨空间审计、密码重置。</td></tr>
+<tr><td>OIDC / 注册控制</td><td>OIDC 登录（JWKS 验签）、self_serve / invite_only 注册模式、复杂密码策略。</td></tr>
+<tr><td>静态加密与传输安全</td><td>AES-256-GCM 加密 + 密钥轮换；gRPC TLS + Token；Redis TLS。</td></tr>
+<tr><td>SSRF 防护</td><td>覆盖数据源、URL 导入、重定向链的防 SSRF HTTP 客户端。</td></tr>
+<tr><td>Langfuse 可观测</td><td>ReAct 循环 / Token / 工具调用 / 任务流水线全链路追踪；解析追踪时间线；Prompt 缓存可观测。</td></tr>
+<tr><td>任务队列面板</td><td>运行时队列深度、按模型并发、分阶段 Worker 池治理、失败任务排查与手动重试。</td></tr>
+<tr><td>审计与日志</td><td>每空间审计日志、系统审计日志、可配置日志级别 / 路径 / 格式、LLM 调试日志。</td></tr>
+</table>
+
+<h2 id="s14">14. 常用 Docker 命令速查</h2>
+<pre><code><span class="tk-c"># ---- 基础生命周期 ----</span>
+docker compose pull                                <span class="tk-c"># 拉取与 WEKNORA_VERSION 匹配的镜像（升级必做）</span>
+docker compose up -d                               <span class="tk-c"># 启动核心服务（后台）</span>
+docker compose down                                <span class="tk-c"># 停止并移除容器</span>
+docker compose ps                                  <span class="tk-c"># 查看服务状态</span>
+docker compose logs -f app                         <span class="tk-c"># 跟随后端日志（也可 -f frontend / docreader）</span>
+docker compose restart app                         <span class="tk-c"># 重启单个服务</span>
+
+<span class="tk-c"># ---- 可选组件 ----</span>
+docker compose --profile neo4j up -d               <span class="tk-c"># 知识图谱 Neo4j（管理台 :7474）</span>
+docker compose --profile minio up -d               <span class="tk-c"># MinIO 对象存储</span>
+docker compose --profile langfuse up -d            <span class="tk-c"># Langfuse 可观测栈（:3000）</span>
+docker compose --profile full up -d                <span class="tk-c"># 全部可选功能</span>
+docker compose --profile neo4j --profile minio up -d   <span class="tk-c"># 多 profile 叠加</span>
+
+<span class="tk-c"># ---- 版本升级 ----</span>
+<span class="tk-c"># 1) 编辑 .env：WEKNORA_VERSION=&lt;目标版本&gt;</span>
+docker compose pull && docker compose up -d        <span class="tk-c"># 用新镜像重建（up 会复用本地缓存，先 pull）</span>
+
+<span class="tk-c"># ---- 快速开发模式（改代码无需重建镜像）----</span>
+make dev-start                                     <span class="tk-c"># 启动基础设施</span>
+make dev-app                                       <span class="tk-c"># 后端（Air 热重载，5-10s 重启）</span>
+make dev-frontend                                  <span class="tk-c"># 前端（Vite 热重载）</span>
+
+<span class="tk-c"># ---- 本地 Ollama ----</span>
+ollama serve > /dev/null 2>&1 &                     <span class="tk-c"># 先起 Ollama，容器内地址用 host.docker.internal:11434</span></code></pre>
+
+<h2 id="s15">15. 常见问题与排错</h2>
+<details><summary>Ollama 连不上？</summary><div class="dbody"><p>后端在容器内，<code>localhost:11434</code> 指向容器自身。应填 <code>http://host.docker.internal:11434</code>，并确保宿主机已运行 <code>ollama serve</code>。初始化向导提供 Ollama 检测 / 模型列表 / 异步下载端点。</p></div></details>
+<details><summary>Embedding 模型能中途更换吗？</summary><div class="dbody"><p>不建议。向量维度与语义空间绑定，建库后更换需重建全部索引；初始化向导在库中已有文件时会限制修改 embedding。</p></div></details>
+<details><summary>IM 里图片不显示？</summary><div class="dbody"><p>IM 平台需要公网可达的 http URL。二选一：(A) 存储后端本身公网可达；(B) 设置 <code>APP_EXTERNAL_URL</code> 让 resource:// 引用改写为 <code>&lt;APP_EXTERNAL_URL&gt;/r/&lt;token&gt;</code>（nginx 需代理 /r/）。本地开发用 ngrok / cloudflared / frp。</p></div></details>
+<details><summary>沙箱不生效 / 找不到 Docker 选项？</summary><div class="dbody"><p>v0.8 起 Docker 沙箱默认关闭（docker.sock 等同宿主机 root）。系统管理员在「设置 → 系统设置 → 网络安全」开启，或设 <code>WEKNORA_SANDBOX_DOCKER_ENABLED=true</code> 作为未落库时的回退。Local 宿主机进程后端已移除。</p></div></details>
+<details><summary>升级后 Web UI 版本不一致？</summary><div class="dbody"><p>仅执行 <code>docker compose up -d</code> 会复用本地缓存镜像。升级时先在 .env 设置 <code>WEKNORA_VERSION</code>，再执行 <code>docker compose pull &amp;&amp; docker compose up -d</code>。</p></div></details>
+<details><summary>忘记系统管理员 / 需要提权？</summary><div class="dbody"><p>新部署没有系统管理员。先正常注册账号，然后给 app 设 <code>WEKNORA_BOOTSTRAP_SYSTEM_ADMIN_EMAIL=&lt;邮箱&gt;</code> 并重启（仅当部署中没有任何系统管理员时生效）。之后在界面管理；管理员密码重置会吊销该用户会话。</p></div></details>
+<details><summary>如何排查 LLM 上下文问题？</summary><div class="dbody"><p>设置 <code>LLM_DEBUG_LOG=true</code>，每次大模型调用的完整请求 / 响应写入 <code>LOG_PATH</code> 同目录的 <code>llm_debug.log</code>；结合 Langfuse 追踪查看 ReAct 循环与 Token 消耗。更多排查见 <code>docs/QA.md</code>。</p></div></details>
+<details><summary>更多参考文档</summary><div class="dbody">
+<ul>
+<li>官方产品文档站：<code>website-docs/</code>（入门 / 架构 / 功能 / API / 客户端 / 开发，约 50 篇）</li>
+<li>API 参考：<code>docs/api/README.md</code>、<code>docs/swagger.json</code></li>
+<li>常见问题：<code>docs/QA.md</code>；知识图谱：<code>docs/KnowledgeGraph.md</code>；RBAC：<code>docs/RBAC说明.md</code></li>
+<li>沙箱：<code>docs/sandbox-*.md</code>；MCP：<code>mcp-server/MCP_CONFIG.md</code>；IM 开发：<code>docs/IM集成开发文档.md</code></li>
+</ul>
+</div></details>
+
+<h2 id="s16">16. 实战运维经验（部署实录 · 2026-09-06）</h2>
+<p>本章是本机实际部署 WeKnora（默认栈 + MinIO + Neo4j + Langfuse 三 profile）当天踩坑与恢复的完整复盘，所有命令均在本机验证有效。核心结论先给：</p>
+<div class="callout"><b>三条铁律</b>：① 改过 <code>app</code> 相关配置重启时，把 <code>frontend</code> 一起重启（nginx 记死旧 IP）；② Docker 引擎异常后，先跑一遍 <code>docker compose --profile minio --profile neo4j --profile langfuse up -d</code> 补齐没起来的容器，再考虑重启 Docker Desktop；③ 排障先分层——页面 200 不代表 API 通，API 通不代表容器健康。</div>
+
+<h3 id="s16-1">16.1 快速恢复流程</h3>
+<p>遇到「打不开 / 报错」时按此流程走，多数 10 分钟内恢复：</p>
+<div class="steps">
+  <div class="step"><b>先测三个端点</b><span>页面 <code>:80</code> · 匿名 API <code>/api/v1/auth/config</code> · Langfuse <code>:3000</code>，判断断在哪一层</span></div>
+  <div class="step"><b>补容器</b><span><code>docker compose --profile minio --profile neo4j --profile langfuse up -d</code>，up 会自动补起退出/缺失的容器</span></div>
+  <div class="step"><b>查容器真相</b><span><code>docker ps -a</code>（必须带 -a，Exited 容器默认不显示）+ <code>docker logs WeKnora-app --tail 50</code></span></div>
+  <div class="step"><b>还不行就重启引擎</b><span>杀掉 Docker Desktop 全部进程重启（见 16.2 案例 1），容器因 <code>restart: unless-stopped</code> 会自动回来</span></div>
+  <div class="step"><b>引擎起来后再补一遍 up</b><span>引擎崩溃常伴随个别容器 Exited，重启完引擎务必再执行一次第 2 步</span></div>
+  <div class="step"><b>端到端验证</b><span>登录页 200 + 匿名 API 200 + 受保护接口 401（未登录的 401 是好现象，说明链路通）</span></div>
+</div>
+
+<h3 id="s16-2">16.2 三次典型故障案例</h3>
+
+<details open><summary>案例 1 · Docker Desktop 引擎僵死（当天发生 2 次）</summary><div class="dbody">
+<p><b>症状</b>（按出现顺序）：</p>
+<ul>
+<li><code>docker compose pull</code> 个别镜像报 <code>502 Bad Gateway for API route</code>；</li>
+<li>随后 <code>docker ps</code> / <code>docker exec</code> 直接<b>挂起无输出</b>（最典型的信号）；</li>
+<li><code>docker info</code> 报 <code>Docker Desktop is unable to start</code> 或 npipe 找不到；</li>
+<li>重启恢复过程中 <code>docker info</code> / <code>docker ps</code> 返回 <code>500 Internal Server Error</code>——这是引擎<b>初始化中的暂态</b>，继续等即可，不要反复杀进程。</li>
+</ul>
+<p><b>恢复操作</b>（PowerShell，管理员不需要）：</p>
+<pre><code><span class="tk-c"># 1) 强杀全部 Docker Desktop 进程（UI + 后端）</span>
+Get-Process <span class="tk-s">'Docker Desktop'</span>,<span class="tk-s">'com.docker.backend'</span>,<span class="tk-s">'com.docker.build'</span> -ErrorAction SilentlyContinue | Stop-Process -Force
+Start-Sleep 8
+<span class="tk-c"># 2) 重新拉起</span>
+Start-Process <span class="tk-s">'C:\Program Files\Docker\Docker\Docker Desktop.exe'</span>
+<span class="tk-c"># 3) 轮询等待引擎就绪（实测 4~5 分钟，期间 500 是暂态）</span>
+docker info --format <span class="tk-s">'{{.ServerVersion}}'</span>   <span class="tk-c"># 能打印版本号即就绪</span></code></pre>
+<p><b>经验</b>：当天两次恢复时引擎顺带从 29.4.0 自动升级到 29.7.2，反复僵死与此高度相关。容器带 <code>restart: unless-stopped</code>，引擎恢复后会自动回来——但<b>个别容器可能 Exited 起不来</b>（见案例 3），所以要补一遍 <code>up -d</code>。</p>
+</div></details>
+
+<details open><summary>案例 2 · 页面能打开但所有 /api 502（frontend nginx 记死旧 IP）</summary><div class="dbody">
+<p><b>症状</b>：浏览器打开 <code>http://localhost/login</code> 是正常登录页（静态文件 200），但点登录无响应；F12 或 curl 看 <code>/api/v1/auth/config</code> 返回 502，nginx 错误页「Sorry, the page you are looking is currently unavailable」。frontend 日志里刷 <code>connect() failed (111: Connection refused) ... upstream: "http://172.21.0.4:8080"</code>——注意这是一个<b>写死的 IP</b>。</p>
+<p><b>根因</b>：frontend 镜像里的 nginx 在<b>启动时</b>把上游主机名 <code>app</code> 解析成 IP 并固定进配置，之后不再重新解析。app 容器一旦被重建（改 .env、升级、引擎重启后重建），就会拿到新 IP，而 frontend 若没跟着重启，nginx 仍指向旧 IP。</p>
+<p><b>修复</b>：<code>docker compose restart frontend</code>（30 秒生效）。<b>预防</b>：以后凡重启 app，连带 frontend：</p>
+<pre><code>docker compose up -d --force-recreate app frontend   <span class="tk-c"># 一起重建， nginx 重新解析</span>
+<span class="tk-c"># 或改完配置后：</span>
+docker compose restart app && docker compose restart frontend</code></pre>
+<p><b>辨别要点</b>：「页面 200 + API 502」几乎必然是这一条，而不是 app 挂了（app 挂了 nginx 会报 upstream not found 的不同错误，且 app 会整容器重启）。</p>
+</div></details>
+
+<details open><summary>案例 3 · MinIO 容器退出 → app panic 重启循环（故障传导链）</summary><div class="dbody">
+<p>引擎重启后如果只看 <code>docker ps</code>（不带 -a），一切「看起来正常」；实际上 <code>WeKnora-minio</code> 是 <code>Exited (255)</code>，随后引发连锁反应：</p>
+<div class="diagram">
+<svg viewBox="0 0 960 130" xmlns="http://www.w3.org/2000/svg" font-size="12.5">
+  <defs><marker id="ar3" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 z" fill="#d97706"/></marker></defs>
+  <style>text{fill:#1f2937}html[data-theme=dark] text{fill:#e5e7eb}.fb{fill:#fdf3e3;stroke:#d97706;rx:8}html[data-theme=dark] .fb{fill:#33260d;stroke:#fbbf24}.fl3{stroke:#d97706;fill:none;marker-end:url(#ar3)}html[data-theme=dark] .fl3{stroke:#fbbf24}</style>
+  <rect class="fb" x="8" y="36" width="150" height="58" rx="8"/><text x="22" y="60">引擎崩溃/升级</text><text x="22" y="78">Docker Desktop 重启</text>
+  <line class="fl3" x1="158" y1="65" x2="186" y2="65"/>
+  <rect class="fb" x="188" y="36" width="150" height="58" rx="8"/><text x="200" y="60">MinIO Exited(255)</text><text x="200" y="78">ps 不带 -a 看不见</text>
+  <line class="fl3" x1="338" y1="65" x2="366" y2="65"/>
+  <rect class="fb" x="368" y="36" width="170" height="58" rx="8"/><text x="380" y="60">app 启动 panic 循环</text><text x="380" y="78">check bucket 失败即 fatal</text>
+  <line class="fl3" x1="538" y1="65" x2="566" y2="65"/>
+  <rect class="fb" x="568" y="36" width="170" height="58" rx="8"/><text x="580" y="60">frontend 卡 Created</text><text x="580" y="78">依赖 app healthy 不成</text>
+  <line class="fl3" x1="738" y1="65" x2="766" y2="65"/>
+  <rect class="fb" x="768" y="36" width="185" height="58" rx="8"/><text x="780" y="60">浏览器看到 nginx</text><text x="780" y="78">「unavailable」错误页</text>
+  <text x="8" y="118" style="fill:#6b7280">app 日志特征：panic: ... failed to check bucket: Get "http://minio:9000/weknora-files/?location=": dial tcp: lookup minio ... server misbehaving</text>
+</svg>
+<div class="figcap">图 3 · 引擎崩溃后的故障传导链：一个「不起眼」的 MinIO 退出让整个栈瘫痪</div>
+</div>
+<p><b>根因</b>：app 在 DI 构建阶段就会连 MinIO 做 bucket 检查（bucket 不存在会自动创建），连不上直接 <code>panic</code> 退出；容器带 <code>restart: unless-stopped</code> 就变成无限重启循环；frontend 的 <code>depends_on: service_healthy</code> 永远等不到 app 健康，停在 Created 状态——于是用户看到的是 nginx 错误页而非 502（frontend 根本没启动）。</p>
+<p><b>修复</b>（一条命令补齐全部）：</p>
+<pre><code>docker compose --profile minio --profile neo4j --profile langfuse up -d
+<span class="tk-c"># MinIO 起来后，app 在重启循环的下一次尝试即连上并转 healthy，frontend 随之启动</span>
+docker compose --profile minio --profile neo4j --profile langfuse ps   <span class="tk-c"># 确认 11 个容器全 Up</span></code></pre>
+</div></details>
+
+<h3 id="s16-3">16.3 分层排障命令速查</h3>
+<pre><code><span class="tk-c"># ---- L1 端点层：判断断在哪一层（页面 200 ≠ API 通）----</span>
+curl -s -o /dev/null -w <span class="tk-s">"%{http_code}\n"</span> http://localhost/                        <span class="tk-c"># 前端静态页，期望 200</span>
+curl -s -o /dev/null -w <span class="tk-s">"%{http_code}\n"</span> http://localhost/api/v1/auth/config      <span class="tk-c"># 匿名 API，期望 200；502=nginx→app 断（案例2）</span>
+curl -s -o /dev/null -w <span class="tk-s">"%{http_code}\n"</span> http://localhost:8080/api/v1/auth/config <span class="tk-c"># 直连 app；通=问题在 nginx，不通=app 本身</span>
+curl -s -o /dev/null -w <span class="tk-s">"%{http_code}\n"</span> http://localhost:3000/api/public/health   <span class="tk-c"># Langfuse</span>
+
+<span class="tk-c"># ---- L2 容器层：必须带 -a 才能看到 Exited（案例3 的关键）----</span>
+docker compose --profile minio --profile neo4j --profile langfuse ps -a
+docker logs WeKnora-app --tail 50          <span class="tk-c"># 找 panic / bootstrap / upstream 关键词</span>
+docker logs WeKnora-frontend 2>&amp;1 | grep -E <span class="tk-s">"error|upstream"</span> | tail   <span class="tk-c"># 看 upstream 是不是写死旧 IP</span>
+
+<span class="tk-c"># ---- L3 数据层：直接查库验证（免登录）----</span>
+docker exec WeKnora-postgres psql -U postgres -d WeKnora -t -A \
+  -c <span class="tk-s">"SELECT email, is_system_admin FROM users ORDER BY created_at;"</span>
+docker exec WeKnora-app printenv WEKNORA_BOOTSTRAP_SYSTEM_ADMIN_EMAIL   <span class="tk-c"># 确认容器真拿到了 .env 新变量</span>
+
+<span class="tk-c"># ---- L4 引擎层：CLI 挂起 / 502 / unable to start → 按案例 1 重启 Docker Desktop ----</span>
+docker info --format <span class="tk-s">'{{.ServerVersion}}'</span>   <span class="tk-c"># 挂起或报错=引擎层问题</span></code></pre>
+<div class="callout"><b>Git Bash 小坑</b>：在 Git Bash 里 <code>docker run ... --entrypoint /bin/sh</code> 会被 MSYS 路径转换改写成 <code>C:/Program Files/Git/usr/bin/sh</code> 而报错，命令前加 <code>MSYS_NO_PATHCONV=1</code> 即可。</div>
+
+<h3 id="s16-4">16.4 Langfuse 自建初始化（免手动注册）</h3>
+<p>compose 的 <code>langfuse-web</code> 支持 <code>LANGFUSE_INIT_*</code> 系列变量，<b>首次启动时自动创建组织、项目、管理员账号，并把自定义 API Key 直接种进项目</b>——省去「浏览器注册 → 手动生成 Key → 回填 .env → 重启 app」四步。本部署实测要点：</p>
+<table>
+<tr><th>变量</th><th>说明</th></tr>
+<tr><td><code>LANGFUSE_INIT_ORG_ID</code> / <code>LANGFUSE_INIT_PROJECT_ID</code></td><td><span class="pill">必填</span> 只填 ORG_NAME 而缺 ORG_ID 时，全部 INIT 变量被静默忽略（日志有 warn，栈照常启动，最易漏）。ID 用小写字母数字连字符，如 <code>weknora-org</code></td></tr>
+<tr><td><code>LANGFUSE_INIT_PROJECT_PUBLIC_KEY</code> / <code>_SECRET_KEY</code></td><td>自拟 <code>pk-lf-</code> / <code>sk-lf-</code> + 32 位 hex。预先生成写入 .env，同一对 Key 同时给 app 的 <code>LANGFUSE_PUBLIC_KEY/SECRET_KEY</code>，一次启动全打通</td></tr>
+<tr><td><code>LANGFUSE_INIT_USER_EMAIL</code> / <code>_PASSWORD</code></td><td>管理员账号，仅首启生效（已有数据则跳过）</td></tr>
+<tr><td><code>LANGFUSE_SALT</code> / <code>ENCRYPTION_KEY</code> / <code>NEXTAUTH_SECRET</code></td><td>compose 有开发默认值，生产务必用 <code>openssl rand</code> 生成真随机值</td></tr>
+</table>
+<pre><code><span class="tk-c"># 修改 INIT 相关变量后需重建两个容器：</span>
+docker compose --profile langfuse up -d --force-recreate langfuse-web langfuse-worker
+<span class="tk-c"># 验证种入的 Key 可用（200 即成功）：</span>
+curl -s -o /dev/null -w <span class="tk-s">"%{http_code}\n"</span> -u <span class="tk-s">"pk-lf-xxxx:sk-lf-xxxx"</span> http://localhost:3000/api/public/projects</code></pre>
+<p>注意：app 端要同时设 <code>LANGFUSE_ENABLED=true</code> 与 <code>LANGFUSE_HOST=http://langfuse-web:3000</code>，app 启动日志出现 <code>[Langfuse] enabled host=...</code> 即接入成功。</p>
+
+<h3 id="s16-5">16.5 系统管理员引导（bootstrap）</h3>
+<p>机制（源码 <code>cmd/server/bootstrap.go</code>）：app 每次启动时读取 <code>WEKNORA_BOOTSTRAP_SYSTEM_ADMIN_EMAIL</code>，把该邮箱用户提升为系统管理员。三条硬约束：</p>
+<ul>
+<li><b>账号必须已注册</b>：不会自动创建用户，先在页面正常注册，再配变量重启 app；</li>
+<li><b>仅当系统中没有任何系统管理员时生效</b>：一旦存在系统管理员，此变量不再赋权（防止 UI 撤销被重启悄悄还原），幂等且只提权不降权；</li>
+<li><b>只在启动时执行</b>：运行中改 .env 无效，必须重建 app 容器，并连带重启 frontend（铁律①）。</li>
+</ul>
+<pre><code><span class="tk-c"># .env 配置</span>
+WEKNORA_BOOTSTRAP_SYSTEM_ADMIN_EMAIL=sijianbn@hotmail.com
+
+<span class="tk-c"># 重建并验证（两处日志/数据任一即可确认）</span>
+docker compose up -d --force-recreate app frontend
+docker logs WeKnora-app 2>&amp;1 | grep -i bootstrap
+<span class="tk-c"># 期望: [bootstrap] promoted user &lt;uuid&gt; (sijianbn@hotmail.com) to system admin ...</span>
+docker exec WeKnora-postgres psql -U postgres -d WeKnora -t -A \
+  -c <span class="tk-s">"SELECT email, is_system_admin FROM users;"</span>   <span class="tk-c"># is_system_admin=t 即生效</span></code></pre>
+<p>后续提权 / 撤销走界面「系统管理员管理页」即可，不必再依赖该变量；保留变量无害（无系统管理员时才会兜底生效）。</p>
+
+<h3 id="s16-6">16.6 凭证与端口备忘</h3>
+<p>本部署启用的控制台与端口（所有密钥均随机生成并落在项目根目录 <code>.env</code>，不写在本文档中）：</p>
+<table>
+<tr><th>服务</th><th>入口</th><th>账号 / 密钥来源</th></tr>
+<tr><td>WeKnora 前端</td><td><code>http://localhost</code>（:80）</td><td>登录即用；系统管理员见 16.5</td></tr>
+<tr><td>后端 API</td><td><code>http://localhost:8080</code></td><td>JWT / API Key（前端设置页生成）</td></tr>
+<tr><td>Langfuse 控制台</td><td><code>http://localhost:3000</code></td><td><code>LANGFUSE_INIT_USER_EMAIL/_PASSWORD</code>（.env）；API Key 见 <code>LANGFUSE_PUBLIC_KEY/_SECRET_KEY</code></td></tr>
+<tr><td>MinIO 控制台</td><td><code>http://localhost:9001</code>（API :9000）</td><td><code>MINIO_ACCESS_KEY_ID / MINIO_SECRET_ACCESS_KEY</code>（.env）；bucket <code>weknora-files</code> 首启自动创建</td></tr>
+<tr><td>Neo4j 浏览器</td><td><code>http://localhost:7474</code>（bolt :7687）</td><td><code>NEO4J_USERNAME / NEO4J_PASSWORD</code>（.env）</td></tr>
+</table>
+<div class="callout warn"><b>安全提醒</b>：<code>.env</code> 含全部密钥且已被 <code>.gitignore</code> 排除，请勿提交仓库、勿在文档/截图中外泄；生产环境务必替换 <code>JWT_SECRET</code> 与 32 字节 <code>SYSTEM_AES_KEY</code>（丢失则库中加密字段不可恢复）。</div>
+
+<p style="margin-top:3em;color:var(--muted);font-size:.85em;border-top:1px solid var(--line);padding-top:1em">本文档由项目仓库（Tencent/WeKnora v0.8.0）的 README_CN.md、website-docs/、docs/、docker-compose.yml、.env.example、mcp-server/ 等内容整理生成 · 第 16 章为 2026-09-06 本机部署实战运维实录 · 仅离线自包含展示 · MIT License</p>
+</main>
+</div>
+<script>
+function toggleTheme(){
+  var h=document.documentElement;
+  var d=h.getAttribute('data-theme')==='dark';
+  h.setAttribute('data-theme',d?'light':'dark');
+  document.getElementById('themeBtn').textContent=d?'🌙 暗色':'☀️ 亮色';
+}
+try{
+  if(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches){
+    document.documentElement.setAttribute('data-theme','dark');
+    document.getElementById('themeBtn').textContent='☀️ 亮色';
+  }
+}catch(e){}
+// scroll spy for TOC
+var links=[].slice.call(document.querySelectorAll('nav.toc a'));
+var secs=links.map(function(a){return document.getElementById(a.getAttribute('href').slice(1))}).filter(Boolean);
+window.addEventListener('scroll',function(){
+  var y=window.scrollY+90,cur=secs[0];
+  secs.forEach(function(s){if(s.offsetTop<=y)cur=s});
+  links.forEach(function(a){a.classList.toggle('act',a.getAttribute('href')==='#'+cur.id)});
+},{passive:true});
+</script>
+</body>
+</html>
