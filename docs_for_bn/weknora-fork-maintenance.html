@@ -215,8 +215,8 @@ Host github-sijianbn
 </table>
 
 <div class="note ok"><b>当前快照（2026-09-09）</b><br>
-bn-main = 上游 df7d871a + 1 个功能补丁 <code>7bc9542f</code>（feat(chat): 自定义附件格式，PR <a href="https://github.com/Tencent/WeKnora/pull/3090">#3090</a>，关联 issue <a href="https://github.com/Tencent/WeKnora/issues/3087">#3087</a>），已推送到 fork 并设好上游跟踪。<code>feat/docs-for-bn</code>（docs_for_bn 私有文档）为<b>独立分支，不并入 bn-main</b>，同样已推 fork；文档改动只落在该分支上。<br>
-远端最终布局：<code>fork</code> 走 SSH 别名（推送免凭据），<code>origin</code> 走 HTTPS + github.com 作用域代理（大流量 fetch，~19 MiB/s），配置见<a href="#credential">双账号 SSH 密钥</a>与上方「网络策略」。当日已 fetch 上游 main 至 <code>b01abb63</code>（+20 提交，含 MCP 两个 breaking 改动与 GPL 许可修正），bn-main 尚未 rebase——按<a href="#sync">「同步上游」</a>执行即可。配套文档：《WeKnora Docker 编译环境》（weknora-docker-build-env.html）。</div>
+bn-main = 上游 b01abb63 + 1 个功能补丁 <code>7427ce5e</code>（feat(chat): 自定义附件格式，PR <a href="https://github.com/Tencent/WeKnora/pull/3090">#3090</a>，关联 issue <a href="https://github.com/Tencent/WeKnora/issues/3087">#3087</a>），线性结构，已推送到 fork 并设好上游跟踪——上游同步（+20 提交，含 MCP 两个 breaking 改动与 GPL 许可修正）已于当日完成。<code>feat/docs-for-bn</code>（docs_for_bn 私有文档）为<b>独立分支，不并入 bn-main</b>，同样已推 fork；文档改动只落在该分支上。<br>
+远端最终布局：<code>fork</code> 走 SSH 别名（推送免凭据），<code>origin</code> 走 HTTPS + github.com 作用域代理（大流量 fetch，~19 MiB/s），配置见<a href="#credential">双账号 SSH 密钥</a>与上方「网络策略」。配套文档：《WeKnora Docker 编译环境》（weknora-docker-build-env.html）。</div>
 
 </main>
 </div>
