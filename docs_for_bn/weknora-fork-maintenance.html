@@ -101,7 +101,8 @@ main{flex:1;min-width:0;padding:26px 34px 80px;max-width:1050px}
 <tr><td><code>feat/*</code></td><td>功能分支 / PR 载体</td><td>fork（即 PR 源分支）</td><td>小而独立，只碰必要文件</td></tr>
 <tr><td><code>origin/main</code></td><td>上游真相</td><td>只 fetch，永不 push</td><td>每次集成的基准</td></tr>
 </table>
-<div class="note"><b>私有内容也走 feat 分支</b>：不打算提上游的内容（如 <code>docs_for_bn/</code> 私有文档）同样从 <code>origin/main</code> 切独立分支维护（例：<code>feat/docs-for-bn</code>），只是永不提 PR。「bn-main 永不直接开发」对这类内容同样生效——改动一律先落在分支上，再 merge 进 bn-main。</div>
+<div class="note"><b>私有内容走独立分支，不并入 bn-main</b>：不提上游的内容（如 <code>docs_for_bn/</code> 私有文档）维护在独立分支 <code>feat/docs-for-bn</code> 上，<b>永不 merge 进 bn-main</b>——bn-main 保持「上游 main + 可提上游的功能补丁」的纯净结构。需要查看或修改文档时切到该分支；若想在任意分支下都能用 <code>docs_for_bn/docker-go.sh</code> 等工具，可常驻一个文档工作区：<br>
+<pre><code>git worktree add ../WeKnora-docs feat/docs-for-bn</code></pre></div>
 
 <h2 id="remotes">本机远端布局（注意：与常见惯例相反）</h2>
 <table>
@@ -138,6 +139,7 @@ git checkout -b feat/描述性名字 origin/main
 
 # 2. 开发 + 自测（编译环境见《Docker 编译环境》文档）
 #    sh docs_for_bn/docker-go.sh test ./受影响包/... -count=1
+#    （docker-go.sh 在 feat/docs-for-bn 分支上——建议按上文用 worktree 常驻，或临时 git show 取用）
 
 # 3. 提交并推到 fork → GitHub 上开 PR（Tencent/WeKnora）
 git add ... && git commit -m "feat(scope): ..."
@@ -213,7 +215,7 @@ Host github-sijianbn
 </table>
 
 <div class="note ok"><b>当前快照（2026-09-09）</b><br>
-bn-main = 上游 df7d871a + 两个 feat 分支的 merge：<code>feat/chat-attachment-custom-extensions</code>（自定义附件格式，PR <a href="https://github.com/Tencent/WeKnora/pull/3090">#3090</a>，关联 issue <a href="https://github.com/Tencent/WeKnora/issues/3087">#3087</a>）和 <code>feat/docs-for-bn</code>（docs_for_bn 私有文档，永不提上游）。均已推送到 fork 并设好上游跟踪；私有文档的后续改动一律在 <code>feat/docs-for-bn</code> 上进行再 merge 进 bn-main。<br>
+bn-main = 上游 df7d871a + 1 个功能补丁 <code>7bc9542f</code>（feat(chat): 自定义附件格式，PR <a href="https://github.com/Tencent/WeKnora/pull/3090">#3090</a>，关联 issue <a href="https://github.com/Tencent/WeKnora/issues/3087">#3087</a>），已推送到 fork 并设好上游跟踪。<code>feat/docs-for-bn</code>（docs_for_bn 私有文档）为<b>独立分支，不并入 bn-main</b>，同样已推 fork；文档改动只落在该分支上。<br>
 远端最终布局：<code>fork</code> 走 SSH 别名（推送免凭据），<code>origin</code> 走 HTTPS + github.com 作用域代理（大流量 fetch，~19 MiB/s），配置见<a href="#credential">双账号 SSH 密钥</a>与上方「网络策略」。当日已 fetch 上游 main 至 <code>b01abb63</code>（+20 提交，含 MCP 两个 breaking 改动与 GPL 许可修正），bn-main 尚未 rebase——按<a href="#sync">「同步上游」</a>执行即可。配套文档：《WeKnora Docker 编译环境》（weknora-docker-build-env.html）。</div>
 
 </main>
