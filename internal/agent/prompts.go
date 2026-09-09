@@ -73,10 +73,11 @@ type SelectedDocumentInfo struct {
 
 // PinnedMCPServiceInfo describes an MCP service explicitly @mentioned for this turn.
 type PinnedMCPServiceInfo struct {
-	ID          string
-	Name        string
-	Description string
-	ToolNames   []string // Registered tool.function names for this service (mcp_{service}_{tool})
+	Discoverable bool // Available through the scoped MCP directory.
+	ID           string
+	Name         string
+	Description  string
+	ToolNames    []string // Registered tool.function names for this service (mcp_{service}_{tool})
 }
 
 // PinnedSkillInfo describes a skill explicitly @mentioned for this turn.
@@ -262,7 +263,9 @@ func formatToolGuidance(names []string) string {
 	b.WriteString("For long-running operations, prefer a documented asynchronous mode when available. Use the returned task ID to wait or poll at the recommended interval and retrieve the completed result; after a timeout, check the existing task before resubmitting.\n")
 	b.WriteString("On failure, use the reported cause to correct the input or environment. Retry only after something relevant changes. Permission, policy, or missing-configuration failures are not fixed by switching tools; report the concrete blocker if it cannot be corrected within this session.\n")
 	if has("read_file") {
-		b.WriteString("Use read_file for workspace files and listed skill:// resources. In older instructions, translate read_skill(skill_name, file_path) to read_file(path=skill://<name>/<file_path or SKILL.md>) and read_sandbox_file to read_file.\n")
+		b.WriteString("Use read_file for workspace files, saved web:// pages and listed skill:// resources. " +
+			"In older instructions, translate read_skill(skill_name, file_path) to " +
+			"read_file(path=skill://<name>/<file_path or SKILL.md>) and read_sandbox_file to read_file.\n")
 	}
 	if has("shell_exec") || has("write_sandbox_file") {
 		b.WriteString("Session workspace: /workspace. Preserve uploaded originals in /workspace/input. " +
@@ -387,6 +390,7 @@ func BuildSystemPromptWithOptions(
 		language = options.Language
 	}
 	basePrompt = renderPromptPlaceholdersWithStatus(template, knowledgeBases, webSearchEnabled, currentTime, language)
+	basePrompt += "\n\n" + steerGuidance
 
 	if options != nil {
 		basePrompt += formatGroundingGuidance(options.SelectedTools)
@@ -402,6 +406,14 @@ func BuildSystemPromptWithOptions(
 
 	return basePrompt
 }
+
+// Apply to custom prompts too: mid-run delivery is a harness capability.
+const steerGuidance = "<steering_guidance>\n" +
+	"Messages in <steer_message> guide the task in progress. Apply them in context; " +
+	"respond briefly when appropriate, then continue unfinished work. Preserve unfinished objectives, " +
+	"accepted constraints and useful tool results unless explicitly changed. " +
+	"Acknowledging guidance alone does not complete the task. Follow explicit cancellation or replacement requests. " +
+	"Hide delivery tags. Untagged subsequent requests are ordinary user messages.\n</steering_guidance>"
 
 // GetPureAgentSystemPrompt returns the Pure Agent system prompt from config templates.
 // The template must be defined in config/prompt_templates/agent_system_prompt.yaml
