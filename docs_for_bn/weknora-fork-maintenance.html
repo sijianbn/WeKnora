@@ -106,16 +106,19 @@ main{flex:1;min-width:0;padding:26px 34px 80px;max-width:1050px}
 <h2 id="remotes">本机远端布局（注意：与常见惯例相反）</h2>
 <table>
 <tr><th>远端名</th><th>指向</th><th>用途</th></tr>
-<tr><td><code>origin</code></td><td><code>git@github.com:Tencent/WeKnora.git</code><br>（SSH，默认密钥 bruceasdqwe）</td><td>上游，<b>只读</b>：fetch 同步用</td></tr>
-<tr><td><code>fork</code></td><td><code>git@github-sijianbn:sijianbn/WeKnora.git</code><br>（SSH 别名，sijianbn 密钥）</td><td>你自己的 fork：push 特性分支与 bn-main</td></tr>
+<tr><td><code>origin</code></td><td><code>https://github.com/Tencent/WeKnora.git</code><br>（HTTPS + github.com 作用域代理）</td><td>上游，<b>只读</b>：fetch 同步用（大流量走代理，实测 ~19 MiB/s）</td></tr>
+<tr><td><code>fork</code></td><td><code>git@github-sijianbn:sijianbn/WeKnora.git</code><br>（SSH 别名，sijianbn 密钥）</td><td>你自己的 fork：push 特性分支与 bn-main（小流量 SSH 直连，秒通且免凭据）</td></tr>
 </table>
-<div class="note"><b>为什么走 SSH</b>：2026-09-09 起 HTTPS 直连 github.com 被网络阻断（443 超时/重置），而 SSH（22 端口）稳定。双账号靠 <code>~/.ssh/config</code> 的别名主机区分，见<a href="#credential">「双账号 SSH 密钥」</a>。</div>
+<div class="note"><b>网络策略（2026-09-09 实测定型）</b>：直连 github.com:443 会被重置；SSH 22 能通但持续大流量被限速到 ~10 KB/s；<b>HTTPS + 本地代理最快</b>。git 已配置<b>仅对 github.com 生效</b>的代理（不影响 goproxy.cn 等其它 host）：<br>
+<pre><code>git config --global http.https://github.com.proxy http://127.0.0.1:7890</code></pre>
+代理没开时：先开代理；或临时把 origin 切成 <code>git@github.com:…</code> 用 SSH 慢速拉。双账号靠 <code>~/.ssh/config</code> 别名主机区分，见<a href="#credential">「双账号 SSH 密钥」</a>。</div>
 <div class="note warn"><b>新电脑恢复</b>（按下述顺序执行一次）：<br>
 <pre><code># 1) 放好两把 OpenSSH 格式密钥并写好 ~/.ssh/config（见「双账号 SSH 密钥」）
 # 2) 克隆 + 挂上游
 git clone --config core.autocrlf=false git@github-sijianbn:sijianbn/WeKnora.git WeKnora
 cd WeKnora
-git remote add origin git@github.com:Tencent/WeKnora.git
+git remote add origin https://github.com/Tencent/WeKnora.git
+git config --global http.https://github.com.proxy http://127.0.0.1:7890   # 开着代理时
 git fetch origin
 git checkout -b bn-main fork/bn-main        # 从 fork 拉回已有 bn-main（含自己的补丁）
 git branch --set-upstream-to=fork/bn-main bn-main</code></pre>
@@ -185,7 +188,7 @@ Host github-sijianbn
 ① push fork 一律用 <code>git@github-sijianbn:sijianbn/WeKnora.git</code> 形式的地址（本仓库的 <code>fork</code> remote 已配置好），SSH 自动选对密钥，<b>不再需要</b> <code>-c credential.username=sijianbn</code>。<br>
 ② <code>.ppk</code> 是 PuTTY 私钥格式，OpenSSH（git 所用）读不了；<code>.ppk2</code> 才是转换后的 OpenSSH 格式。转换命令（puttygen 可用 TortoiseGit 自带的）：<code>puttygen key.ppk -O private-openssh-new -o key.ppk2</code>。<br>
 ③ 验证某把钥匙的身份：<code>ssh -T -i ~/.ssh/xxx git@github.com</code>，看返回「Hi 谁」。<br>
-④ HTTPS 通道（GCM、<code>-c credential.username</code> 那套）仅作最后备用——2026-09 起直连 443 经常被重置，而 SSH 22 端口稳定。</div>
+④ 通道实测（2026-09-09）：直连 443 被重置；SSH 22 稳定但限速；HTTPS+代理最快。故 fork 推送走 SSH 别名（小流量、免凭据），origin 大 fetch 走 HTTPS+代理；<code>-c credential.username=sijianbn</code> 保留为 HTTPS 推 fork 的备用手段。</div>
 
 <h2 id="cikung">fork 上的免费 CI</h2>
 <p>GitHub Actions 在<b>自己的 fork 里不需要维护者批准</b>。工作流：推到 fork → fork 的 Actions 页直接跑（若默认禁用，在 fork 的 Actions 标签页点 "I understand my workflows, go ahead and enable them"）。这样可以在提 PR <b>之前</b>就完成 CI 自验，把「等维护者批准 workflow」的被动等待变成提前验证。</p>
@@ -211,7 +214,7 @@ Host github-sijianbn
 
 <div class="note ok"><b>当前快照（2026-09-09）</b><br>
 bn-main = 上游 df7d871a + 两个 feat 分支的 merge：<code>feat/chat-attachment-custom-extensions</code>（自定义附件格式，PR <a href="https://github.com/Tencent/WeKnora/pull/3090">#3090</a>，关联 issue <a href="https://github.com/Tencent/WeKnora/issues/3087">#3087</a>）和 <code>feat/docs-for-bn</code>（docs_for_bn 私有文档，永不提上游）。均已推送到 fork 并设好上游跟踪；私有文档的后续改动一律在 <code>feat/docs-for-bn</code> 上进行再 merge 进 bn-main。<br>
-两个远端已全部切为 SSH（<code>origin</code> = <code>git@github.com:Tencent/WeKnora.git</code>，<code>fork</code> = 别名 <code>github-sijianbn</code>），见<a href="#credential">双账号 SSH 密钥</a>。当日观测到上游 main 已前进至 <code>b01abb63</code>，bn-main 尚未 rebase——下次同步上游时按<a href="#sync">「同步上游」</a>执行即可。配套文档：《WeKnora Docker 编译环境》（weknora-docker-build-env.html）。</div>
+远端最终布局：<code>fork</code> 走 SSH 别名（推送免凭据），<code>origin</code> 走 HTTPS + github.com 作用域代理（大流量 fetch，~19 MiB/s），配置见<a href="#credential">双账号 SSH 密钥</a>与上方「网络策略」。当日已 fetch 上游 main 至 <code>b01abb63</code>（+20 提交，含 MCP 两个 breaking 改动与 GPL 许可修正），bn-main 尚未 rebase——按<a href="#sync">「同步上游」</a>执行即可。配套文档：《WeKnora Docker 编译环境》（weknora-docker-build-env.html）。</div>
 
 </main>
 </div>
