@@ -76,7 +76,7 @@ main{flex:1;min-width:0;padding:26px 34px 80px;max-width:1050px}
   <a href="#accepted">上游接受了你的 PR</a>
   <a href="#rejected">上游明确拒绝</a>
   <div class="grp">机制与坑</div>
-  <a href="#credential">双账号推送凭据</a>
+  <a href="#credential">双账号 SSH 密钥</a>
   <a href="#cikung">fork 上的免费 CI</a>
   <a href="#principles">三条实践原则</a>
   <div class="grp">附录</div>
@@ -106,15 +106,18 @@ main{flex:1;min-width:0;padding:26px 34px 80px;max-width:1050px}
 <h2 id="remotes">本机远端布局（注意：与常见惯例相反）</h2>
 <table>
 <tr><th>远端名</th><th>指向</th><th>用途</th></tr>
-<tr><td><code>origin</code></td><td>https://github.com/Tencent/WeKnora.git</td><td>上游，<b>只读</b>：fetch 同步用</td></tr>
-<tr><td><code>fork</code></td><td>https://github.com/sijianbn/WeKnora.git</td><td>你自己的 fork：push 特性分支与 bn-main</td></tr>
+<tr><td><code>origin</code></td><td><code>git@github.com:Tencent/WeKnora.git</code><br>（SSH，默认密钥 bruceasdqwe）</td><td>上游，<b>只读</b>：fetch 同步用</td></tr>
+<tr><td><code>fork</code></td><td><code>git@github-sijianbn:sijianbn/WeKnora.git</code><br>（SSH 别名，sijianbn 密钥）</td><td>你自己的 fork：push 特性分支与 bn-main</td></tr>
 </table>
+<div class="note"><b>为什么走 SSH</b>：2026-09-09 起 HTTPS 直连 github.com 被网络阻断（443 超时/重置），而 SSH（22 端口）稳定。双账号靠 <code>~/.ssh/config</code> 的别名主机区分，见<a href="#credential">「双账号 SSH 密钥」</a>。</div>
 <div class="note warn"><b>新电脑恢复</b>（按下述顺序执行一次）：<br>
-<pre><code>git clone --config core.autocrlf=false https://github.com/sijianbn/WeKnora.git WeKnora
+<pre><code># 1) 放好两把 OpenSSH 格式密钥并写好 ~/.ssh/config（见「双账号 SSH 密钥」）
+# 2) 克隆 + 挂上游
+git clone --config core.autocrlf=false git@github-sijianbn:sijianbn/WeKnora.git WeKnora
 cd WeKnora
-git remote add origin https://github.com/Tencent/WeKnora.git
+git remote add origin git@github.com:Tencent/WeKnora.git
 git fetch origin
-git checkout -b bn-main origin/main        # 或从 fork 拉回已有 bn-main
+git checkout -b bn-main fork/bn-main        # 从 fork 拉回已有 bn-main（含自己的补丁）
 git branch --set-upstream-to=fork/bn-main bn-main</code></pre>
 （CRLF 参数的原因见《Docker 编译环境》文档踩坑 #4）</div>
 
@@ -123,7 +126,7 @@ git branch --set-upstream-to=fork/bn-main bn-main</code></pre>
 git fetch origin                          # 拉上游最新
 git rebase origin/main                    # bn-main 的补丁整体搬到新 main 上
 # 有冲突 → 解决后 git add + git rebase --continue；想放弃 → git rebase --abort
-git -c credential.username=sijianbn push -f fork bn-main</code></pre>
+git push -f fork bn-main</code></pre>
 <div class="note"><b>为什么用 rebase 而不是 merge</b>：补丁少（个位数）时 rebase 历史最干净——bn-main 永远等价于「最新上游 main + N 个自己的 commit」，一眼能看出自己改了什么。补丁超过十几个或经常冲突时再改用 merge 策略。</div>
 
 <h2 id="newfeature">新功能开发（产出一个 PR + 一次集成）</h2>
@@ -135,12 +138,12 @@ git checkout -b feat/描述性名字 origin/main
 
 # 3. 提交并推到 fork → GitHub 上开 PR（Tencent/WeKnora）
 git add ... && git commit -m "feat(scope): ..."
-git -c credential.username=sijianbn push -u fork feat/描述性名字
+git push -u fork feat/描述性名字
 
 # 4. 不管上游是否接受，先合入自己的 bn-main 用起来
 git checkout bn-main
 git merge feat/描述性名字
-git -c credential.username=sijianbn push fork bn-main</code></pre>
+git push fork bn-main</code></pre>
 
 <h2 id="deploy">构建部署（永远从 bn-main）</h2>
 <pre><code>git checkout bn-main
@@ -164,14 +167,25 @@ docker compose up -d</code></pre>
 <pre><code>git checkout feat/xxx
 git fetch origin
 git rebase origin/main
-git -c credential.username=sijianbn push -f fork feat/xxx</code></pre>
+git push -f fork feat/xxx</code></pre>
 维护者永远看到「可干净合并」的 PR，这是被接受的重要加分项。</div>
 
-<h2 id="credential">双账号推送凭据（本机实际情况）</h2>
-<div class="note warn"><b>现状</b>：Windows 凭据管理器里 GitHub 的默认账号是 <code>corvax2884</code>，而 fork 属于 <code>sijianbn</code>。直接 <code>git push fork</code> 会报 <code>Permission to sijianbn/WeKnora.git denied to corvax2884</code>（403）。<br><br>
-<b>可靠解法</b>：推送 fork 时一律带上内联用户名——<br>
-<code>git -c credential.username=sijianbn push fork &lt;分支&gt;</code><br><br>
-（仓库级 <code>credential.&lt;url&gt;.username</code> 配置实测不生效：GCM 按 host 匹配优先返回了默认账号的 OAuth token，所以别指望那条配置。）</div>
+<h2 id="credential">双账号 SSH 密钥（本机实际情况）</h2>
+<div class="note warn"><b>现状</b>：本机有两把 GitHub 密钥、两个账号——默认 <code>Host github.com</code> 走 <code>bruceasdqwe.ppk2</code>（bruceasdqwe 账号），fork 所属的 <code>sijianbn</code> 账号走别名主机 <code>github-sijianbn</code>。<code>~/.ssh/config</code> 全文：</div>
+<pre><code>Host github.com
+  IdentityFile ~/.ssh/bruceasdqwe.ppk2
+
+# sijianbn 账号专用别名：fork（sijianbn/WeKnora）推送走这里
+Host github-sijianbn
+  HostName github.com
+  User git
+  IdentityFile ~/.ssh/sijianbn_github.ppk2
+  IdentitiesOnly yes</code></pre>
+<div class="note"><b>要点</b>：<br>
+① push fork 一律用 <code>git@github-sijianbn:sijianbn/WeKnora.git</code> 形式的地址（本仓库的 <code>fork</code> remote 已配置好），SSH 自动选对密钥，<b>不再需要</b> <code>-c credential.username=sijianbn</code>。<br>
+② <code>.ppk</code> 是 PuTTY 私钥格式，OpenSSH（git 所用）读不了；<code>.ppk2</code> 才是转换后的 OpenSSH 格式。转换命令（puttygen 可用 TortoiseGit 自带的）：<code>puttygen key.ppk -O private-openssh-new -o key.ppk2</code>。<br>
+③ 验证某把钥匙的身份：<code>ssh -T -i ~/.ssh/xxx git@github.com</code>，看返回「Hi 谁」。<br>
+④ HTTPS 通道（GCM、<code>-c credential.username</code> 那套）仅作最后备用——2026-09 起直连 443 经常被重置，而 SSH 22 端口稳定。</div>
 
 <h2 id="cikung">fork 上的免费 CI</h2>
 <p>GitHub Actions 在<b>自己的 fork 里不需要维护者批准</b>。工作流：推到 fork → fork 的 Actions 页直接跑（若默认禁用，在 fork 的 Actions 标签页点 "I understand my workflows, go ahead and enable them"）。这样可以在提 PR <b>之前</b>就完成 CI 自验，把「等维护者批准 workflow」的被动等待变成提前验证。</p>
@@ -187,7 +201,7 @@ git -c credential.username=sijianbn push -f fork feat/xxx</code></pre>
 <table>
 <tr><th>场景</th><th>命令</th></tr>
 <tr><td>同步上游到 bn-main</td><td><code>git checkout bn-main &amp;&amp; git fetch origin &amp;&amp; git rebase origin/main</code></td></tr>
-<tr><td>推 bn-main（注意用户名）</td><td><code>git -c credential.username=sijianbn push -f fork bn-main</code></td></tr>
+<tr><td>推 bn-main（SSH，无需凭据参数）</td><td><code>git push -f fork bn-main</code></td></tr>
 <tr><td>新功能分支</td><td><code>git checkout -b feat/名字 origin/main</code></td></tr>
 <tr><td>功能合入 bn-main</td><td><code>git checkout bn-main &amp;&amp; git merge feat/名字</code></td></tr>
 <tr><td>PR 保活</td><td><code>git rebase origin/main feat/名字</code> 后 <code>push -f fork</code></td></tr>
@@ -196,7 +210,8 @@ git -c credential.username=sijianbn push -f fork feat/xxx</code></pre>
 </table>
 
 <div class="note ok"><b>当前快照（2026-09-09）</b><br>
-bn-main = 上游 df7d871a + 两个 feat 分支的 merge：<code>feat/chat-attachment-custom-extensions</code>（自定义附件格式，PR <a href="https://github.com/Tencent/WeKnora/pull/3090">#3090</a>，关联 issue <a href="https://github.com/Tencent/WeKnora/issues/3087">#3087</a>）和 <code>feat/docs-for-bn</code>（docs_for_bn 私有文档，永不提上游）。均已推送到 fork 并设好上游跟踪；私有文档的后续改动一律在 <code>feat/docs-for-bn</code> 上进行再 merge 进 bn-main。配套文档：《WeKnora Docker 编译环境》（weknora-docker-build-env.html）。</div>
+bn-main = 上游 df7d871a + 两个 feat 分支的 merge：<code>feat/chat-attachment-custom-extensions</code>（自定义附件格式，PR <a href="https://github.com/Tencent/WeKnora/pull/3090">#3090</a>，关联 issue <a href="https://github.com/Tencent/WeKnora/issues/3087">#3087</a>）和 <code>feat/docs-for-bn</code>（docs_for_bn 私有文档，永不提上游）。均已推送到 fork 并设好上游跟踪；私有文档的后续改动一律在 <code>feat/docs-for-bn</code> 上进行再 merge 进 bn-main。<br>
+两个远端已全部切为 SSH（<code>origin</code> = <code>git@github.com:Tencent/WeKnora.git</code>，<code>fork</code> = 别名 <code>github-sijianbn</code>），见<a href="#credential">双账号 SSH 密钥</a>。当日观测到上游 main 已前进至 <code>b01abb63</code>，bn-main 尚未 rebase——下次同步上游时按<a href="#sync">「同步上游」</a>执行即可。配套文档：《WeKnora Docker 编译环境》（weknora-docker-build-env.html）。</div>
 
 </main>
 </div>
