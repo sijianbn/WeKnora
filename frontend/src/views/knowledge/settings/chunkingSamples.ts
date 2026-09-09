@@ -3,6 +3,8 @@
 // chunker, so users can quickly see how their config behaves on realistic
 // content without preparing their own sample.
 
+import { APP_NAME } from '@/config/brand'
+
 export interface ChunkingSample {
   id: string
   // i18n key under knowledgeEditor.chunking.debug.samples.<id>
@@ -10,13 +12,13 @@ export interface ChunkingSample {
   text: string
 }
 
-const MARKDOWN_SAMPLE = `# WeKnora 知识框架
+const MARKDOWN_SAMPLE = `# ${APP_NAME} 知识框架
 
-WeKnora 是一个基于 LLM 的开源企业知识框架，集 RAG 问答、ReAct 智能体、Wiki 知识图谱于一体。本文介绍其设计动机、架构与典型用法。
+${APP_NAME} 是一个基于 LLM 的开源企业知识框架，集 RAG 问答、ReAct 智能体、Wiki 知识图谱于一体。本文介绍其设计动机、架构与典型用法。
 
 ## 设计动机
 
-企业内部知识散落在 Confluence、飞书、Notion、Git 仓库等多种系统，传统全文检索难以理解语义，单一 LLM 又缺少可信赖的上下文来源。WeKnora 的目标是：
+企业内部知识散落在 Confluence、飞书、Notion、Git 仓库等多种系统，传统全文检索难以理解语义，单一 LLM 又缺少可信赖的上下文来源。${APP_NAME} 的目标是：
 
 - **多源接入**：把分散内容统一抽取、清洗、向量化
 - **多策略检索**：稠密、稀疏、知识图谱多路召回 + RRF 融合
@@ -71,7 +73,7 @@ make dev-frontend          # 启动前端，自动刷新
 
 ## 架构概览
 
-WeKnora 后端采用清晰的分层架构：
+${APP_NAME} 后端采用清晰的分层架构：
 
 \`\`\`
 ┌────────────────────────┐
@@ -109,7 +111,7 @@ Agent 引擎执行经典 ReAct 循环：
 - 故障排查：\`docs/QA.md\`
 - 路线图：\`docs/ROADMAP.md\``
 
-const FAQ_SAMPLE = `# WeKnora 部署与使用 FAQ
+const FAQ_SAMPLE = `# ${APP_NAME} 部署与使用 FAQ
 
 本文档汇总社区与内部用户最常问到的问题，按"安装 / 配置 / 检索 / 模型 / 性能"分类。
 

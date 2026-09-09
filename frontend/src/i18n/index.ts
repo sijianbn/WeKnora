@@ -5,14 +5,15 @@ import enUS from './locales/en-US.ts'
 import koKR from './locales/ko-KR.ts'
 import jaJP from './locales/ja-JP.ts'
 import { BUILT_IN_DEFAULT, resolveDefaultLocale } from './resolveDefaultLocale.ts'
+import { applyBrandToMessages } from './brandMessages.ts'
 
-const messages = {
+const messages = applyBrandToMessages({
   'zh-CN': zhCN,
   'en-US': enUS,
   'ru-RU': ruRU,
   'ko-KR': koKR,
   'ja-JP': jaJP
-}
+})
 
 // User's explicit past choice wins; otherwise use the deployment default.
 const savedLocale = localStorage.getItem('locale') || resolveDefaultLocale(

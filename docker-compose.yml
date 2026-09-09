@@ -18,12 +18,22 @@ services:
       - MAX_FILE_SIZE_MB=${MAX_FILE_SIZE_MB:-50}
       - MAX_SKILL_BUNDLE_SIZE_MB=${MAX_SKILL_BUNDLE_SIZE_MB:-256}
       - DEFAULT_LOCALE=${DEFAULT_LOCALE:-}
+      # 品牌参数化（白标改名）：只影响前端展示文案，见 .env.example 说明。
+      - APP_NAME=${APP_NAME:-}
+      - CLOUD_SERVICE_NAME=${CLOUD_SERVICE_NAME:-}
+      - APP_DESCRIPTION=${APP_DESCRIPTION:-}
+      - APP_LOGO_URL=${APP_LOGO_URL:-}
+      - APP_FAVICON_URL=${APP_FAVICON_URL:-}
       - APP_HOST=${APP_HOST:-app}
       # APP_BACKEND_PORT: the port NGINX proxies to (default 8080).
       # For local deployment this is the App container's listening port, independent of host-mapped APP_PORT.
       # For remote deployment, set this to the remote App's service port.
       - APP_PORT=${APP_BACKEND_PORT:-8080}
       - APP_SCHEME=${APP_SCHEME:-http}
+    # Optional white-label assets: mount custom logo/favicon into nginx html, then set
+    # APP_LOGO_URL=/branding/logo.png and APP_FAVICON_URL=/branding/favicon.ico in .env.
+    # volumes:
+    #   - ./branding:/usr/share/nginx/html/branding:ro
     # NOTE: If using a remote App backend, comment out or remove the depends_on
     # block below and set APP_HOST/APP_BACKEND_PORT/APP_SCHEME in your .env file.
     depends_on:

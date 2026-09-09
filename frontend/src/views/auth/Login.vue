@@ -97,7 +97,7 @@
 
     <!-- Logo - Top Left -->
     <a href="https://github.com/Tencent/WeKnora" target="_blank" class="header-logo" :title="$t('common.github')">
-      <img src="@/assets/img/weknora.png" alt="WeKnora" class="logo-image" />
+      <img :src="logoSrc" :alt="APP_NAME" class="logo-image" />
     </a>
 
     <!-- Header Links - Top Right -->
@@ -343,6 +343,8 @@
 import { ref, reactive, nextTick, onMounted, onBeforeUnmount, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { MessagePlugin } from 'tdesign-vue-next'
+import { APP_NAME, brandLogoSrc } from '@/config/brand'
+import weknoraLogo from '@/assets/img/weknora.png'
 import { useRoleLabel } from '@/composables/useRoleLabel'
 import { notifyLoginSuccess } from '@/utils/loginNotify'
 import { newPasswordRules } from '@/utils/passwordPolicy'
@@ -371,6 +373,9 @@ import screenshot1 from '@/assets/img/screenshot-1.svg'
 import screenshot2 from '@/assets/img/screenshot-2.svg'
 import screenshot3 from '@/assets/img/screenshot-3.svg'
 import screenshot4 from '@/assets/img/screenshot-4.svg'
+
+// 品牌 Logo：运行时配置覆盖时优先，否则用内置资源。
+const logoSrc = brandLogoSrc(weknoraLogo)
 
 const router = useRouter()
 const route = useRoute()

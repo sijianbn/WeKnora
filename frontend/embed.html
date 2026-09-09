@@ -20,6 +20,21 @@
 })();
 </script>
 <script src="/config.js"></script>
+<script>
+/* 品牌参数化：替换默认 title 与 favicon；渠道配置了 pageTitle 时 EmbedPage 会再覆盖。 */
+(function(){
+  try {
+    var cfg = window.__RUNTIME_CONFIG__ || {};
+    var name = (cfg.APP_NAME || '').trim();
+    if (name) document.title = document.title.replace(/WeKnora/g, name);
+    var fav = (cfg.APP_FAVICON_URL || '').trim();
+    if (fav && /^(https?:\/\/|\/|data:image\/)/i.test(fav)) {
+      document.querySelectorAll('link[rel="shortcut icon"], link[rel="icon"], link[rel="apple-touch-icon"]')
+        .forEach(function (link) { link.setAttribute('href', fav); });
+    }
+  } catch (e) {}
+})();
+</script>
 <script src="/tdesign-icons/0.4.1/fonts/index.js"></script>
 <div id="embed-app"></div>
 <script type="module" src="/src/embed-main.ts"></script>

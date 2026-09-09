@@ -1,4 +1,5 @@
 import { createI18n } from 'vue-i18n'
+import { applyBrandToMessages } from './brandMessages'
 
 const messages = {
   "zh-CN": {
@@ -2096,13 +2097,13 @@ function resolveInitialEmbedLocale(): EmbedLocale {
 
 const locale = resolveInitialEmbedLocale()
 
-export const EMBED_MESSAGES = {
+export const EMBED_MESSAGES = applyBrandToMessages({
   'zh-CN': messages['zh-CN'],
   'en-US': messages['en-US'],
   'ko-KR': deepMerge(messages['en-US'], koEmbedPublish),
   'ja-JP': messages['ja-JP'],
   'ru-RU': deepMerge(messages['en-US'], ruEmbedPublish),
-} as const
+} as const)
 
 const i18n = createI18n({
   legacy: false,

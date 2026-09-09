@@ -867,6 +867,7 @@ import { MessagePlugin, DialogPlugin, Icon as TIcon } from 'tdesign-vue-next'
 import type { FormRules, FormInstanceFunctions } from 'tdesign-vue-next'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
+import { APP_NAME } from '@/config/brand'
 import { useAuthStore } from '@/stores/auth'
 import { useOrganizationStore } from '@/stores/organization'
 import {
@@ -2449,10 +2450,10 @@ const downloadExampleOptions = computed(() => [
 // 示例数据
 const exampleData: FAQEntryPayload[] = [
   {
-    standard_question: '什么是 WeKnora？',
-    answers: ['WeKnora 是一个智能知识库管理系统', '它支持多种知识库类型和导入方式'],
-    similar_questions: ['WeKnora 是什么？', '介绍一下 WeKnora'],
-    negative_questions: ['这不是 WeKnora', '与 WeKnora 无关'],
+    standard_question: `什么是 ${APP_NAME}？`,
+    answers: [`${APP_NAME} 是一个智能知识库管理系统`, '它支持多种知识库类型和导入方式'],
+    similar_questions: [`${APP_NAME} 是什么？`, `介绍一下 ${APP_NAME}`],
+    negative_questions: [`这不是 ${APP_NAME}`, `与 ${APP_NAME} 无关`],
     tag_name: '产品介绍',
   },
   {

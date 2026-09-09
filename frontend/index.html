@@ -57,6 +57,27 @@
 })();
 </script>
 <script src="/config.js"></script>
+<script>
+/* 品牌参数化：config.js 加载后立即替换 title / meta description 里的默认品牌名，
+   避免等待主 bundle 期间闪现 "WeKnora"。入口脚本已限制安全字符集，无需再转义。 */
+(function(){
+  try {
+    var cfg = window.__RUNTIME_CONFIG__ || {};
+    var name = (cfg.APP_NAME || '').trim();
+    if (name) document.title = document.title.replace(/WeKnora/g, name);
+    var desc = document.querySelector('meta[name="description"]');
+    if (desc) {
+      if (cfg.APP_DESCRIPTION) desc.setAttribute('content', cfg.APP_DESCRIPTION);
+      else if (name) desc.setAttribute('content', (desc.getAttribute('content') || '').replace(/WeKnora/g, name));
+    }
+    var fav = (cfg.APP_FAVICON_URL || '').trim();
+    if (fav && /^(https?:\/\/|\/|data:image\/)/i.test(fav)) {
+      document.querySelectorAll('link[rel="shortcut icon"], link[rel="icon"], link[rel="apple-touch-icon"]')
+        .forEach(function (link) { link.setAttribute('href', fav); });
+    }
+  } catch (e) {}
+})();
+</script>
 <!--
   离线部署兼容：提前本地加载 tdesign-icons SVG sprite，避免 tdesign-vue-next 的
   <t-icon> 运行时向 https://tdesign.gtimg.com 发起请求（见 issue #867 / #897）。

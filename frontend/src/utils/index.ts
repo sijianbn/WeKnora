@@ -9,6 +9,11 @@ declare global {
       MAX_FILE_SIZE_MB?: number;
       MAX_SKILL_BUNDLE_SIZE_MB?: number;
       DEFAULT_LOCALE?: string;
+      APP_NAME?: string;
+      CLOUD_SERVICE_NAME?: string;
+      APP_DESCRIPTION?: string;
+      APP_LOGO_URL?: string;
+      APP_FAVICON_URL?: string;
     };
   }
 }
