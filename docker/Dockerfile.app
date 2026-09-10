@@ -8,11 +8,16 @@ ARG GOPRIVATE_ARG
 ARG GOPROXY_ARG
 ARG GOSUMDB_ARG=off
 ARG APK_MIRROR_ARG
+# 可选：透传 Go 运行时调试开关（如 http2client=0，见 GODEBUG 文档）。
+# 模块代理 CDN 在并行 HTTP/2 下载下会 GOAWAY 截断大 zip（表现为
+# "zip: not a valid zip file"），关掉 h2 强制 HTTP/1.1 可绕开。
+ARG GODEBUG_ARG
 
 # 设置Go环境变量
 ENV GOPRIVATE=${GOPRIVATE_ARG}
 ENV GOPROXY=${GOPROXY_ARG}
 ENV GOSUMDB=${GOSUMDB_ARG}
+ENV GODEBUG=${GODEBUG_ARG}
 
 # Install dependencies
 RUN if [ -n "$APK_MIRROR_ARG" ]; then \
@@ -51,11 +56,20 @@ ENV GO_VERSION=${GO_VERSION_ARG}
 # engine; pass WITH_ANYDOC=0 to skip the Rust toolchain (~few minutes and
 # ~1 GB of build-stage layers).
 ARG WITH_ANYDOC=1
+# Rust 工具链与 crates 镜像（可选）。直连 static.rust-lang.org / crates.io 在
+# 部分网络下大文件下载会被中间设备截断卡死。USTC 示例：
+#   RUSTUP_MIRROR_ARG=https://mirrors.ustc.edu.cn/rust-static
+#   CRATES_INDEX_ARG=sparse+https://mirrors.ustc.edu.cn/crates.io-index/
+# 注意 rustup 会在 RUSTUP_DIST_SERVER 后自行拼接 /dist/，此处传镜像根路径。
+ARG RUSTUP_MIRROR_ARG
+ARG CRATES_INDEX_ARG
 ENV RUSTUP_HOME=/usr/local/rustup CARGO_HOME=/usr/local/cargo
 ENV PATH=/usr/local/cargo/bin:$PATH
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/usr/local/cargo/git \
     if [ "$WITH_ANYDOC" = "1" ]; then \
+        { [ -z "$RUSTUP_MIRROR_ARG" ] || export RUSTUP_DIST_SERVER="$RUSTUP_MIRROR_ARG" RUSTUP_UPDATE_ROOT="$RUSTUP_MIRROR_ARG/rustup"; } && \
+        { [ -z "$CRATES_INDEX_ARG" ] || { mkdir -p /usr/local/cargo && printf '[source.crates-io]\nreplace-with = "mirror"\n\n[source.mirror]\nregistry = "%s"\n' "$CRATES_INDEX_ARG" > /usr/local/cargo/config.toml; }; } && \
         curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
             | sh -s -- -y --profile minimal --default-toolchain stable && \
         ./scripts/build-anydoc-lib.sh; \
