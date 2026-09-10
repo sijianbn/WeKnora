@@ -103,6 +103,9 @@ export default defineConfig({
       output: {
         manualChunks(id) {
           if (!id.includes('node_modules')) return
+          if (id.includes('tdesign-vue-next') || id.includes('tdesign-icons-vue-next')) {
+            return 'vendor-tdesign'
+          }
           if (id.includes('mermaid') || id.includes('/dagre') || id.includes('cytoscape')) {
             return 'vendor-mermaid'
           }

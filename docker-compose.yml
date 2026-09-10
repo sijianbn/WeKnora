@@ -1,6 +1,13 @@
 services:
   frontend:
-    image: wechatopenai/weknora-ui:${WEKNORA_VERSION:-latest}
+    # bn fork 本地构建镜像：前端含未合入上游的改动（如附件格式放行）。
+    # 刻意用 Docker Hub 上不存在的标签——任何拉取（`compose pull` 按
+    # pull_policy: build 直接跳过；`up --pull always` 拉取失败后因可 build
+    # 而回退）都拿不到官方镜像，官方 weknora-ui 无法静默顶掉本地构建。
+    image: weknora-ui:bn
+    # 每次 up 都用本地 Dockerfile 构建（而非复用旧镜像）；源码未变时层缓存
+    # 命中，增量代价很小。VITE_FRONTEND_COMMIT 变化（新 commit）会触发完整重建。
+    pull_policy: build
     # Multi-stage Dockerfile builds dist inside the image (no host npm required).
     # Optional: NPM_REGISTRY=https://registry.npmmirror.com docker compose build frontend
     # VITE_FRONTEND_COMMIT: start_all.sh / make docker-build-frontend inject git;
@@ -35,14 +42,50 @@ services:
       - WeKnora-network
     restart: unless-stopped
 
+  # Windows/Mac Docker Desktop 场景：Desktop 转发出来的 docker.sock 是 root:root，
+  # 入口脚本会拒绝把 appuser 加入 GID 0 组（那等同给 appuser root 权限）。
+  # 这个 socat sidecar 把原始 socket 原样转发到一个 gid=1000（appuser）的新 socket，
+  # app 容器挂载的是这个新 socket，而不是原始的 root:root socket。
+  # Linux 宿主机若 docker.sock 本身就是非 root 组（如 gid=docker），可以跳过这个
+  # sidecar，直接把 /var/run/docker.sock 挂给 app（见下方注释掉的写法）。
+  docker-sock-proxy:
+    image: alpine/socat:latest
+    container_name: WeKnora-docker-sock-proxy
+    command: >
+      UNIX-LISTEN:/proxy/docker.sock,fork,mode=660,group=1000,unlink-early,reuseaddr
+      UNIX-CONNECT:/var/run/docker.sock
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - docker-sock-proxy:/proxy
+    profiles:
+      - docker-sandbox
+    restart: unless-stopped
+    networks:
+      - WeKnora-network
+
   app:
-    image: wechatopenai/weknora-app:${WEKNORA_VERSION:-latest}
+    # bn fork 本地构建镜像：Go 源码含未合入上游的改动（如 internal/）。
+    # 标签刻意不在 Docker Hub 上，拉取路径的分析见 frontend 同款注释——
+    # 官方 weknora-app 无法静默顶掉本地构建。
+    image: weknora-app:bn
+    pull_policy: build
     build:
       context: .
       dockerfile: docker/Dockerfile.app
       args:
         - APK_MIRROR_ARG=${APK_MIRROR_ARG:-}
         - WITH_ANYDOC=${WITH_ANYDOC:-1}
+        # Go 模块代理（.env 默认指向本地 modrelay 中继 http://host.docker.internal:8079，
+        # 防镜像站 CDN 并发截断；见 modrelay 服务注释）；模块缓存走 BuildKit
+        # cache mount，冷缓存 / go.mod 变更后重新下载时依赖此项
+        - GOPROXY_ARG=${GOPROXY_ARG:-}
+        # Rust 工具链 / crates 镜像（.env 配 USTC；直连官方源大文件会被截断卡死，
+        # 见 docker/Dockerfile.app 同名注释）
+        - RUSTUP_MIRROR_ARG=${RUSTUP_MIRROR_ARG:-}
+        - CRATES_INDEX_ARG=${CRATES_INDEX_ARG:-}
+        # 关闭构建内 Go 工具的 HTTP/2（防模块代理 CDN GOAWAY 截断 zip；见
+        # docker/Dockerfile.app 同名注释），留空则保持默认
+        - GODEBUG_ARG=${GODEBUG_ARG:-}
     container_name: WeKnora-app
     ports:
       - "${APP_PORT:-8080}:8080"
@@ -53,7 +96,12 @@ services:
       # Docker 沙箱默认关闭（见 WEKNORA_SANDBOX_DOCKER_ENABLED）。需要本机 daemon 时
       # 同时设 true 并挂载实际 socket——这等同宿主机 root，仅私有化单机。
       # 入口脚本会按 socket GID 把 appuser 加入对应组（compose group_add 在 gosu 后无效）。
+      # Linux 宿主机（docker.sock 属非 root 组）可以直接挂原始 socket：
       # - /var/run/docker.sock:/var/run/docker.sock
+      # Windows/Mac Docker Desktop：挂 docker-sock-proxy 转发出来的 gid=1000 socket。
+      # 在「设置 → 沙箱后端 → Docker」的「Docker 守护进程地址」里填
+      # unix:///var/run/docker-proxy/docker.sock（不要留空，留空会走默认的 /var/run/docker.sock）。
+      - docker-sock-proxy:/var/run/docker-proxy:ro
       # Optional: declarative built-in models. Copy config/builtin_models.yaml.example
       # to config/builtin_models.yaml, edit it for your deployment, then
       # uncomment the line below. See docs/BUILTIN_MODELS.md.
@@ -386,6 +434,28 @@ services:
     restart: unless-stopped
     extra_hosts:
       - "host.docker.internal:host-gateway"
+
+  # Go 模块代理中继（docs_for_bn/modrelay.py）。本网络环境下 goproxy 镜像站
+  # （aliyun/tencent）在 go 的并行 HTTP/2 下载下会随机截断大 zip，且截断包会
+  # 永久毒化 BuildKit 模块缓存导致重试无效。中继逐请求单流下载 + CRC 校验 +
+  # 磁盘缓存（modrelay-cache 卷）。构建容器（默认 bridge 网络，无服务名 DNS）
+  # 通过 host.docker.internal:8079 访问——Docker Desktop 保证该域名在所有
+  # 容器网络内可用；.env 的 GOPROXY_ARG 已指向它。端口仅是只读模块缓存。
+  modrelay:
+    image: python:3.12-slim
+    container_name: WeKnora-modrelay
+    command: ["python", "/app/modrelay.py", "8079"]
+    working_dir: /app
+    ports:
+      - "8079:8079"
+    volumes:
+      - ./docs_for_bn/modrelay.py:/app/modrelay.py:ro
+      - modrelay-cache:/cache
+    environment:
+      - MODRELAY_CACHE=/cache
+    restart: unless-stopped
+    networks:
+      - WeKnora-network
 
   # Sandbox 镜像：仅用于 build/pull，非常驻。Docker 沙箱默认关闭，需
   # WEKNORA_SANDBOX_DOCKER_ENABLED=true 并挂载 docker.sock 后，app 才会按会话创建容器。
@@ -1035,6 +1105,8 @@ volumes:
   postgres-data:
   data-files:
   docreader-tmp:
+  docker-sock-proxy:
+  modrelay-cache:
   minio_data:
   neo4j-data:
   qdrant_data:
