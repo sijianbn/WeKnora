@@ -348,7 +348,7 @@ const navItems = computed(() => {
     { key: 'parser', icon: 'file-search', label: t('settings.parserEngine') },
     { key: 'storage', icon: 'cloud', label: t('settings.storageEngine') },
     { key: 'sandbox', icon: 'code', label: t('settings.sandbox.title') },
-    { key: 'system', icon: 'info-circle', label: t('settings.versionInfo') },
+    // { key: 'system', icon: 'info-circle', label: t('settings.versionInfo') },
     { key: 'system-global', icon: 'server', label: t('settings.system') },
     { key: 'model-catalog', icon: 'control-platform', label: t('modelCatalog.title') },
     { key: 'runtime-queues', icon: 'queue', label: t('settings.taskQueue') },

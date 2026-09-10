@@ -97,7 +97,7 @@
 
     <!-- Logo - Top Left -->
     <a href="https://github.com/Tencent/WeKnora" target="_blank" class="header-logo" :title="$t('common.github')">
-      <img src="@/assets/img/weknora.png" alt="WeKnora" class="logo-image" />
+      <img src="https://climsprod.genewiz.com.cn/Content/brand/img/logo/brandlogo_gwz_x1.png" alt="WeKnora" class="logo-image" />
     </a>
 
     <!-- Header Links - Top Right -->

@@ -1,0 +1,25 @@
+# =====================================================================
+# 本 fork（gwz）私有覆盖文件 —— docker compose 自动加载，无需 -f 指定。
+#
+# 作用：frontend / app 两个服务在本 fork 有改动、需本地构建，镜像 tag 走
+#       本地命名空间（版本号随 .env 的 WEKNORA_GWZ_VERSION，默认 bn）；
+#       其余服务（docreader/sandbox 等）不在本文件出现，维持 docker-compose.yml
+#       原样，始终拉官方 wechatopenai 镜像。
+#
+# build 配置（frontend/Dockerfile、docker/Dockerfile.app）继承自主 compose 文件，
+# `docker compose build` 的产物会自动打成本文件指定的 tag。
+#
+# 日常命令：
+#   docker compose build frontend app   # 改完 fork 代码后重建这两个镜像
+#   docker compose up -d                # 启动/更新（frontend/app 用本地镜像）
+#   docker compose pull docreader       # 官方组件升级时点名拉取
+#
+# 注意：不要用 make docker-build-*（那会打 wechatopenai:latest 的 tag，
+# 与本文件镜像名对不上）；也不要裸跑 docker compose pull（本地镜像名在
+# Docker Hub 不存在，会报错，属预期——用 --ignore-buildable 或点名拉取）。
+# =====================================================================
+services:
+  frontend:
+    image: gwz-weknora-ui:${WEKNORA_GWZ_VERSION:-bn}
+  app:
+    image: gwz-weknora-app:${WEKNORA_GWZ_VERSION:-bn}

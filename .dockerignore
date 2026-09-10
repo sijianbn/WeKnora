@@ -53,9 +53,14 @@ data/*.db-wal
 data/*.db-shm
 test/data/mswag.txt
 
+# 本地工具的运行时数据（.tokensave 的 SQLite/WAL 正被进程持续写入，
+# Windows 下 Docker 读取它会导致 context sender 崩溃：error from sender）
+.tokensave/
+
 # 敏感文件
 .env
 .env.lite
+.env.bak
 *.pem
 *.key
 *.crt
