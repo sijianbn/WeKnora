@@ -23,3 +23,33 @@ services:
     image: gwz-weknora-ui:${WEKNORA_GWZ_VERSION:-bn}
   app:
     image: gwz-weknora-app:${WEKNORA_GWZ_VERSION:-bn}
+    # Docker 沙箱走下方 sock-proxy 中转（见该服务注释），主 compose 保持原样。
+    volumes:
+      - docker-sock-proxy:/proxy:ro
+    environment:
+      # 沙箱配置里 Docker 地址留空时，app 会回退读 DOCKER_HOST
+      # （internal/sandbox/docker_host.go 的 DetectLocalDockerHost）。
+      - DOCKER_HOST=unix:///proxy/docker.sock
+    depends_on:
+      docker-sock-proxy:
+        condition: service_started
+
+  # 宿主 docker.sock 的中转：socat 把 daemon socket 复制到共享卷的
+  # /proxy/docker.sock，mode 660、gid 1000 正好是 app 容器 appuser 的组，
+  # 避开 Windows 直挂时 socket GID 无法加入 appuser 的问题。
+  # 注意：socat 不过滤 API，等同直挂 socket（宿主 root 权限），仅限私有化单机。
+  docker-sock-proxy:
+    image: alpine/socat:latest
+    container_name: WeKnora-docker-sock-proxy
+    command:
+      - UNIX-LISTEN:/proxy/docker.sock,fork,mode=660,group=1000,unlink-early,reuseaddr
+      - UNIX-CONNECT:/var/run/docker.sock
+    volumes:
+      - docker-sock-proxy:/proxy
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - WeKnora-network
+    restart: unless-stopped
+
+volumes:
+  docker-sock-proxy:
