@@ -83,10 +83,10 @@ func TestApproxTextContentRunes(t *testing.T) {
 
 func TestTemporaryDocumentSupportsXMindWithoutEngineDiscovery(t *testing.T) {
 	svc := &temporaryDocumentService{}
-	if !svc.supportsExtension(context.Background(), 1, ".xmind") {
+	if supported, _ := svc.extensionSupport(context.Background(), 1, ".xmind"); !supported {
 		t.Fatal("XMind must be accepted even when engine discovery is unavailable")
 	}
-	if svc.supportsExtension(context.Background(), 1, ".exe") {
+	if supported, _ := svc.extensionSupport(context.Background(), 1, ".exe"); supported {
 		t.Fatal("unsupported attachments must still be rejected")
 	}
 }
