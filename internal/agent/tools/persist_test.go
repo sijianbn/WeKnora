@@ -87,6 +87,35 @@ func TestSanitizeAgentStepsForStorage_stripsLargeOutput(t *testing.T) {
 	}
 }
 
+// view_sandbox_image pixels ride the live turn only; persisted steps must
+// carry the compact text Output, never megabyte data URIs.
+func TestSanitizeAgentStepsForStorage_stripsViewSandboxImagePixels(t *testing.T) {
+	steps := []types.AgentStep{{
+		Iteration: 1,
+		ToolCalls: []types.ToolCall{{
+			ID:   "call-1",
+			Name: ToolViewSandboxImage,
+			Result: &types.ToolResult{
+				Success: true,
+				Output:  "Image loaded: /workspace/input/gene-table.png (image/png, 8 bytes).",
+				Images:  []string{"data:image/png;base64,AAAA"},
+			},
+		}},
+	}}
+
+	sanitized := SanitizeAgentStepsForStorage(steps)
+	result := sanitized[0].ToolCalls[0].Result
+	if len(result.Images) != 0 {
+		t.Fatalf("persisted view_sandbox_image result must not carry data URIs, got %d", len(result.Images))
+	}
+	if !strings.Contains(result.Output, "gene-table.png") {
+		t.Fatalf("persisted output should keep the compact text, got %q", result.Output)
+	}
+	if strings.Contains(result.Output, "data:image") {
+		t.Fatalf("persisted output leaked a data URI: %q", result.Output)
+	}
+}
+
 func TestSanitizeToolResultForClient_omitsOutput(t *testing.T) {
 	meta := SanitizeToolResultForClient(ToolReadDocument, &types.ToolResult{
 		Success: true,

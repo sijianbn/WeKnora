@@ -441,6 +441,9 @@ func (s *agentService) registerSandboxFileTools(
 			toolRegistry.RegisterTool(tools.NewListSandboxFilesTool(store))
 		}
 		toolRegistry.RegisterTool(tools.NewReadFileTool(store))
+		// Image delivery (pixels for vision models, VLM text otherwise) is
+		// decided in the engine's observe phase; see tools/view_sandbox_image.go.
+		toolRegistry.RegisterTool(tools.NewViewSandboxImageTool(store))
 		// The per-round completion budget, not a fixed byte count, is what
 		// bounds one write; the tool advertises a limit derived from it.
 		toolRegistry.RegisterTool(tools.NewWriteSandboxFileTool(

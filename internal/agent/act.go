@@ -188,6 +188,7 @@ var toolDisplayNames = map[string]string{
 	agenttools.LegacyToolReadSandboxFile:     "读取沙箱文件",
 	agenttools.ToolWriteSandboxFile:          "写入沙箱文件",
 	agenttools.ToolEditSandboxFile:           "编辑沙箱文件",
+	agenttools.ToolViewSandboxImage:          "查看沙箱图片",
 	agenttools.ToolShellExec:                 "执行沙箱命令",
 }
 

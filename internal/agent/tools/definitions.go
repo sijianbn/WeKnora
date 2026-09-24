@@ -44,6 +44,16 @@ const (
 	ToolListSandboxFiles = "list_sandbox_files"
 	ToolWriteSandboxFile = "write_sandbox_file"
 	ToolEditSandboxFile  = "edit_sandbox_file"
+	// ToolViewSandboxImage loads one image from the session sandbox into the
+	// model's multimodal input (vision model: pixels re-emitted as a user
+	// image message; non-vision model: VLM text description appended to the
+	// tool result). read_file suppresses binary content, so this is the
+	// only way for the model to see a sandbox image.
+	//
+	// Registered by registerSandboxFileTools from the same session-file
+	// capability as the primitives above; deliberately absent from
+	// AvailableToolDefinitions for the same reason.
+	ToolViewSandboxImage = "view_sandbox_image"
 	// ToolWriteSkillFile / ToolEditSkillFile write the skill tree under
 	// /opt/weknora/tenant/skills rather than /workspace, and exist only for
 	// the built-in skill installer. They are scoped to the one skill being

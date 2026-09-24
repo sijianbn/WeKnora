@@ -131,6 +131,12 @@ func SanitizeAgentStepsForStorage(steps []types.AgentStep) []types.AgentStep {
 				// Screenshot bytes already live in Data for the result card.
 				result.Images = nil
 			}
+			if tc.Name == ToolViewSandboxImage {
+				// Pixels ride the live turn only (user image message). Persisted
+				// history keeps the compact text Output — a VLM description when
+				// one was produced — instead of megabyte data URIs per image.
+				result.Images = nil
+			}
 			if isSandboxContentTool(tc.Name) {
 				// display_type is for the live card; history still needs the
 				// command, exit, and a head+tail of the streams. Replacing
