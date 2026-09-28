@@ -101,6 +101,11 @@ func newE2BRemoteClient(
 	// would register tokens that no HTTP stack consults. A pool-built split
 	// that already owns the same registry is left as-is.
 	transport = attachInboundTokenTransport(transport, inboundTokens)
+	// Providers that serve envd away from the SDK's hardcoded port need the
+	// authority rewritten before the gateway split parses it — a 5000- label
+	// must not be mistaken for a non-data-plane host. No-op unless the config
+	// (or the FC auto-default) asked for a different port.
+	transport = NewEnvdPortTransport(transport, cfg.E2BEnvdPort)
 	// Every E2B client speaks to envd through the compatibility shim, whether
 	// or not a gateway is configured: the two details it rewrites belong to the
 	// envd protocol itself, not to any one deployment. See envd_compat_transport.go.

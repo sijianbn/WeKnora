@@ -1,0 +1,737 @@
+package e2b
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"strings"
+)
+
+// SandboxConfig holds the configuration for creating a new sandbox.
+type SandboxConfig struct {
+	// Template is the sandbox template ID. Defaults to "base".
+	Template string
+
+	// Timeout is the sandbox lifetime in seconds. Defaults to 300.
+	Timeout int
+
+	// EnvVars are environment variables set in the sandbox.
+	EnvVars map[string]string
+
+	// Secure enables secure envd communication with access tokens.
+	// Required when Network.AllowPublicTraffic is false.
+	// Defaults to true in the official SDKs since v2.0.0.
+	Secure bool
+
+	// AllowInternetAccess controls whether the sandbox can access
+	// the internet. When false, equivalent to DenyOut: ["0.0.0.0/0"].
+	// Defaults to true (server-side).
+	AllowInternetAccess *bool
+
+	// Network configures outbound network access and request transforms.
+	// If nil, the sandbox uses the default network configuration
+	// (all outbound traffic allowed).
+	Network *NetworkConfig
+
+	// AutoPause automatically pauses the sandbox after the timeout instead
+	// of killing it. When true, the sandbox transitions to paused rather
+	// than being destroyed at expiry.
+	AutoPause bool
+
+	// AutoPauseMemory controls whether auto-pause saves a full memory
+	// snapshot (true, default) or only the filesystem (false).
+	// A filesystem-only snapshot cannot be auto-resumed by traffic.
+	// Only relevant when AutoPause is true.
+	AutoPauseMemory *bool
+
+	// AutoResume configures automatic resuming of paused sandboxes when
+	// they receive inbound traffic. Only works with full-memory snapshots
+	// (AutoPauseMemory=true or unset).
+	AutoResume *AutoResumeConfig
+
+	// Metadata is a set of key-value pairs attached to the sandbox for
+	// filtering and organization.
+	Metadata map[string]string
+
+	// MCP configures the MCP (Model Context Protocol) gateway for the sandbox.
+	MCP *MCPConfig
+
+	// VolumeMounts are volumes to mount into the sandbox at creation time.
+	VolumeMounts []VolumeMount
+}
+
+// AutoResumeConfig configures automatic resuming of paused sandboxes on traffic.
+type AutoResumeConfig struct {
+	// Enabled enables automatic resuming when the paused sandbox receives
+	// inbound network traffic.
+	Enabled bool `json:"enabled"`
+}
+
+// MCPConfig holds MCP (Model Context Protocol) gateway configuration.
+type MCPConfig struct {
+	// Integrations is a map of MCP server integrations (e.g. "github", "slack")
+	// to their configuration parameters.
+	Integrations map[string]map[string]interface{} `json:"-"`
+}
+
+// Sandbox represents a running E2B sandbox microVM.
+type Sandbox struct {
+	// ID is the unique identifier of the sandbox.
+	ID string
+
+	// TrafficAccessToken is set when the sandbox is created with
+	// Secure: true and Network.AllowPublicTraffic: false.
+	// Use it in the "e2b-traffic-access-token" HTTP header to access
+	// sandbox URLs.
+	TrafficAccessToken string
+
+	// Commands provides command execution within the sandbox.
+	Commands *CommandService
+
+	// Pty provides interactive pseudo-terminal sessions within the sandbox.
+	Pty *PtyService
+
+	// Filesystem provides file read and write operations within the sandbox.
+	Filesystem *FilesystemService
+
+	accessToken string
+	client      *Client
+
+	// domain is the per-sandbox base domain returned by the API (empty when
+	// the response omits it). When set, it takes precedence over the
+	// client-wide sandbox domain for building envd URLs. Forks may report a
+	// domain that differs from the client default.
+	domain string
+}
+
+type createRequest struct {
+	TemplateID          string            `json:"templateID"`
+	Timeout             int               `json:"timeout"`
+	EnvVars             map[string]string `json:"envVars,omitempty"`
+	Secure              bool              `json:"secure,omitempty"`
+	AllowInternetAccess *bool             `json:"allow_internet_access,omitempty"`
+	Network             *NetworkConfig    `json:"network,omitempty"`
+	AutoPause           bool              `json:"autoPause,omitempty"`
+	AutoPauseMemory     *bool             `json:"autoPauseMemory,omitempty"`
+	AutoResume          *AutoResumeConfig `json:"autoResume,omitempty"`
+	Metadata            map[string]string `json:"metadata,omitempty"`
+	MCP                 *MCPConfig        `json:"mcp,omitempty"`
+	VolumeMounts        []VolumeMount     `json:"volumeMounts,omitempty"`
+}
+
+type createResponse struct {
+	SandboxID          string `json:"sandboxID"`
+	EnvdAccessToken    string `json:"envdAccessToken"`
+	TrafficAccessToken string `json:"trafficAccessToken,omitempty"`
+	Domain             string `json:"domain,omitempty"`
+}
+
+// SandboxLifecycle holds lifecycle configuration for a sandbox.
+type SandboxLifecycle struct {
+	AutoResume bool   `json:"autoResume"`
+	OnTimeout  string `json:"onTimeout"` // "pause" or "kill"
+}
+
+// VolumeMount represents a mounted volume in the sandbox.
+type VolumeMount struct {
+	Name string `json:"name,omitempty"`
+	Path string `json:"path,omitempty"`
+}
+
+// SandboxInfo holds details about a sandbox.
+type SandboxInfo struct {
+	ID           string            `json:"sandboxID"`
+	Alias        string            `json:"alias,omitempty"`
+	ClientID     string            `json:"clientID,omitempty"`
+	Template     string            `json:"templateID"`
+	State        string            `json:"state"`
+	CPUCount     int               `json:"cpuCount"`
+	MemoryMB     int               `json:"memoryMB"`
+	DiskSizeMB   int               `json:"diskSizeMB"`
+	StartedAt    string            `json:"startedAt"`
+	EndAt        string            `json:"endAt,omitempty"`
+	EnvdVersion  string            `json:"envdVersion,omitempty"`
+	Metadata     map[string]string `json:"metadata,omitempty"`
+	Lifecycle    SandboxLifecycle  `json:"lifecycle,omitempty"`
+	VolumeMounts []VolumeMount     `json:"volumeMounts,omitempty"`
+	Network      *NetworkConfig    `json:"network,omitempty"`
+}
+
+// envdBaseURL returns the base URL of the sandbox environment daemon. It uses
+// the sandbox's own domain when the API reported one, falling back to the
+// client-wide sandbox domain otherwise.
+func (s *Sandbox) envdBaseURL() string {
+	host := s.domain
+	if host == "" {
+		host = s.client.sandboxDomain
+	}
+	return fmt.Sprintf("https://%d-%s.%s", envdPort, s.ID, host)
+}
+
+// IsRunning checks whether the sandbox's envd daemon is healthy and
+// responding. It calls the /health endpoint on the sandbox data plane.
+// Returns true when the sandbox is running and ready to accept requests.
+func (s *Sandbox) IsRunning() (bool, error) {
+	return s.IsRunningWithContext(context.Background())
+}
+
+// IsRunningWithContext checks the sandbox health using the provided context.
+// Returns true if envd responds with 200 or 204.
+func (s *Sandbox) IsRunningWithContext(ctx context.Context) (bool, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, s.envdBaseURL()+"/health", nil)
+	if err != nil {
+		return false, fmt.Errorf("e2b: build health request: %w", err)
+	}
+
+	resp, err := s.client.httpClient.Do(req)
+	if err != nil {
+		return false, fmt.Errorf("e2b: send health request: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	switch resp.StatusCode {
+	case http.StatusOK, http.StatusNoContent:
+		return true, nil
+	default:
+		return false, nil
+	}
+}
+
+// Close destroys the sandbox, freeing all associated resources.
+func (s *Sandbox) Close() error {
+	return s.CloseWithContext(context.Background())
+}
+
+// CloseWithContext destroys the sandbox using the provided context.
+func (s *Sandbox) CloseWithContext(ctx context.Context) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, s.client.apiBaseURL+"/sandboxes/"+s.ID, nil)
+	if err != nil {
+		return fmt.Errorf("e2b: build delete request: %w", err)
+	}
+	req.Header.Set("X-API-Key", s.client.apiKey)
+
+	resp, err := s.client.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("e2b: send delete request: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	switch resp.StatusCode {
+	case http.StatusNoContent, http.StatusOK:
+		return nil
+	case http.StatusNotFound:
+		return &SandboxNotFoundError{SandboxID: s.ID}
+	default:
+		respBody, _ := io.ReadAll(resp.Body)
+		return &Error{StatusCode: resp.StatusCode, Message: string(respBody)}
+	}
+}
+
+// Info retrieves detailed information about the sandbox.
+func (s *Sandbox) Info() (*SandboxInfo, error) {
+	return s.InfoWithContext(context.Background())
+}
+
+// InfoWithContext retrieves detailed information about the sandbox using the provided context.
+func (s *Sandbox) InfoWithContext(ctx context.Context) (*SandboxInfo, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, s.client.apiBaseURL+"/sandboxes/"+s.ID, nil)
+	if err != nil {
+		return nil, fmt.Errorf("e2b: build info request: %w", err)
+	}
+	req.Header.Set("X-API-Key", s.client.apiKey)
+
+	resp, err := s.client.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("e2b: send info request: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		respBody, _ := io.ReadAll(resp.Body)
+		if resp.StatusCode == http.StatusNotFound {
+			return nil, &SandboxNotFoundError{SandboxID: s.ID}
+		}
+		return nil, &Error{StatusCode: resp.StatusCode, Message: string(respBody)}
+	}
+
+	var info SandboxInfo
+	if err := json.NewDecoder(resp.Body).Decode(&info); err != nil {
+		return nil, fmt.Errorf("e2b: decode info response: %w", err)
+	}
+
+	return &info, nil
+}
+
+type setTimeoutRequest struct {
+	Timeout int `json:"timeout"`
+}
+
+// SetTimeout updates the sandbox lifetime timeout in seconds.
+func (s *Sandbox) SetTimeout(timeoutSeconds int) error {
+	return s.SetTimeoutWithContext(context.Background(), timeoutSeconds)
+}
+
+// SetTimeoutWithContext updates the sandbox lifetime timeout using the provided context.
+func (s *Sandbox) SetTimeoutWithContext(ctx context.Context, timeoutSeconds int) error {
+	body, err := json.Marshal(setTimeoutRequest{Timeout: timeoutSeconds})
+	if err != nil {
+		return fmt.Errorf("e2b: marshal timeout request: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.client.apiBaseURL+"/sandboxes/"+s.ID+"/timeout", bytes.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("e2b: build timeout request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-API-Key", s.client.apiKey)
+
+	resp, err := s.client.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("e2b: send timeout request: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	switch resp.StatusCode {
+	case http.StatusNoContent, http.StatusOK:
+		return nil
+	case http.StatusNotFound:
+		return &SandboxNotFoundError{SandboxID: s.ID}
+	default:
+		respBody, _ := io.ReadAll(resp.Body)
+		return &Error{StatusCode: resp.StatusCode, Message: string(respBody)}
+	}
+}
+
+// MaxRefreshDuration is the largest duration (in seconds) accepted by the
+// sandbox refresh endpoint. Requesting more is rejected client-side.
+const MaxRefreshDuration = 3600
+
+// refreshParams holds options for a Refresh request.
+type refreshParams struct {
+	duration    int
+	durationSet bool
+}
+
+// RefreshOption configures a Refresh / RefreshWithContext request.
+type RefreshOption func(*refreshParams)
+
+// WithRefreshDuration extends the sandbox lifetime by durationSeconds from now,
+// keeping it alive for that many additional seconds. Valid range is 0 to
+// MaxRefreshDuration (3600). When omitted, the server applies its default
+// refresh duration.
+func WithRefreshDuration(durationSeconds int) RefreshOption {
+	return func(p *refreshParams) {
+		p.duration = durationSeconds
+		p.durationSet = true
+	}
+}
+
+type refreshRequest struct {
+	Duration int `json:"duration"`
+}
+
+// Refresh extends the sandbox's time-to-live, keeping it alive.
+// Without options the server applies its default refresh duration; pass
+// WithRefreshDuration to specify how many seconds to keep it alive for.
+func (s *Sandbox) Refresh(opts ...RefreshOption) error {
+	return s.RefreshWithContext(context.Background(), opts...)
+}
+
+// RefreshWithContext extends the sandbox's time-to-live using the provided context.
+func (s *Sandbox) RefreshWithContext(ctx context.Context, opts ...RefreshOption) error {
+	var p refreshParams
+	for _, o := range opts {
+		o(&p)
+	}
+
+	// Only serialize a body when a duration was explicitly requested; the
+	// endpoint's request body is optional, so an unconfigured Refresh sends
+	// an empty POST and lets the server pick its default duration.
+	var reqBody io.Reader
+	if p.durationSet {
+		if p.duration < 0 || p.duration > MaxRefreshDuration {
+			return &InvalidArgumentError{Message: fmt.Sprintf("duration must be between 0 and %d seconds", MaxRefreshDuration)}
+		}
+		body, err := json.Marshal(refreshRequest{Duration: p.duration})
+		if err != nil {
+			return fmt.Errorf("e2b: marshal refresh request: %w", err)
+		}
+		reqBody = bytes.NewReader(body)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.client.apiBaseURL+"/sandboxes/"+s.ID+"/refreshes", reqBody)
+	if err != nil {
+		return fmt.Errorf("e2b: build refresh request: %w", err)
+	}
+	if reqBody != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
+	req.Header.Set("X-API-Key", s.client.apiKey)
+
+	resp, err := s.client.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("e2b: send refresh request: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusOK {
+		return nil
+	}
+
+	respBody, _ := io.ReadAll(resp.Body)
+	// A missing sandbox surfaces as 404; a malformed sandbox ID surfaces as 400
+	// with an "invalid sandbox ID" message. Map both to the typed
+	// SandboxNotFoundError so callers handle "no such sandbox" uniformly
+	// (mirrors Client.Connect and ForkSandbox), while routing 401/429 through
+	// the shared code mapping.
+	if resp.StatusCode == http.StatusNotFound ||
+		(resp.StatusCode == http.StatusBadRequest &&
+			strings.Contains(strings.ToLower(string(respBody)), "invalid sandbox id")) {
+		return &SandboxNotFoundError{SandboxID: s.ID}
+	}
+	if msg := errorMessageFromBody(respBody); msg != "" {
+		return apiErrorFromCode(resp.StatusCode, msg)
+	}
+	return &Error{StatusCode: resp.StatusCode, Message: string(respBody)}
+}
+
+// pauseParams holds options for a Pause request.
+type pauseParams struct {
+	keepMemory bool
+}
+
+// PauseOption configures a Pause / PauseWithContext request.
+type PauseOption func(*pauseParams)
+
+// WithKeepMemory controls the snapshot type taken when pausing. When true
+// (the default) a full memory snapshot is taken so the sandbox can be
+// auto-resumed; when false the in-memory state is dropped and only the
+// filesystem is persisted, so resuming cold-boots (reboots) from disk.
+func WithKeepMemory(keep bool) PauseOption {
+	return func(p *pauseParams) { p.keepMemory = keep }
+}
+
+// Pause pauses the sandbox, stopping billing while preserving state.
+// A paused sandbox can be resumed with Resume.
+// By default, a full memory snapshot is taken. Pass WithKeepMemory(false) to
+// drop the in-memory state and persist only the filesystem; resuming
+// such a snapshot cold-boots (reboots) the sandbox from disk.
+func (s *Sandbox) Pause(opts ...PauseOption) error {
+	return s.PauseWithContext(context.Background(), opts...)
+}
+
+// PauseWithContext pauses the sandbox using the provided context.
+// See Pause and WithKeepMemory for the available options.
+func (s *Sandbox) PauseWithContext(ctx context.Context, opts ...PauseOption) error {
+	p := pauseParams{keepMemory: true}
+	for _, o := range opts {
+		o(&p)
+	}
+
+	type pauseRequest struct {
+		KeepMemory bool `json:"keepMemory"`
+	}
+	body, err := json.Marshal(pauseRequest{KeepMemory: p.keepMemory})
+	if err != nil {
+		return fmt.Errorf("e2b: marshal pause request: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.client.apiBaseURL+"/sandboxes/"+s.ID+"/pause", bytes.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("e2b: build pause request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-API-Key", s.client.apiKey)
+
+	resp, err := s.client.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("e2b: send pause request: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	switch resp.StatusCode {
+	case http.StatusNoContent, http.StatusOK:
+		return nil
+	case http.StatusNotFound:
+		return &SandboxNotFoundError{SandboxID: s.ID}
+	default:
+		respBody, _ := io.ReadAll(resp.Body)
+		return &Error{StatusCode: resp.StatusCode, Message: string(respBody)}
+	}
+}
+
+type resumeRequest struct {
+	Timeout int `json:"timeout"`
+}
+
+// Resume resumes a paused sandbox with the given lifetime timeout in seconds.
+func (s *Sandbox) Resume(timeoutSeconds int) error {
+	return s.ResumeWithContext(context.Background(), timeoutSeconds)
+}
+
+// ResumeWithContext resumes a paused sandbox using the provided context.
+func (s *Sandbox) ResumeWithContext(ctx context.Context, timeoutSeconds int) error {
+	body, err := json.Marshal(resumeRequest{Timeout: timeoutSeconds})
+	if err != nil {
+		return fmt.Errorf("e2b: marshal resume request: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.client.apiBaseURL+"/sandboxes/"+s.ID+"/resume", bytes.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("e2b: build resume request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-API-Key", s.client.apiKey)
+
+	resp, err := s.client.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("e2b: send resume request: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	switch resp.StatusCode {
+	case http.StatusCreated, http.StatusOK, http.StatusNoContent:
+		return nil
+	case http.StatusNotFound:
+		return &SandboxNotFoundError{SandboxID: s.ID}
+	default:
+		respBody, _ := io.ReadAll(resp.Body)
+		return &Error{StatusCode: resp.StatusCode, Message: string(respBody)}
+	}
+}
+
+// UpdateNetwork replaces the mutable network configuration on a running sandbox.
+// All fields in the update config are optional; omitted fields are cleared
+// on the server. This replaces the entire mutable config, it does not merge.
+// Create-only fields (AllowPublicTraffic, MaskRequestHost) are preserved.
+func (s *Sandbox) UpdateNetwork(cfg NetworkUpdateConfig) error {
+	return s.UpdateNetworkWithContext(context.Background(), cfg)
+}
+
+// UpdateNetworkWithContext replaces the mutable network configuration using the provided context.
+func (s *Sandbox) UpdateNetworkWithContext(ctx context.Context, cfg NetworkUpdateConfig) error {
+	body, err := json.Marshal(cfg)
+	if err != nil {
+		return fmt.Errorf("e2b: marshal network update request: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPut, s.client.apiBaseURL+"/sandboxes/"+s.ID+"/network", bytes.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("e2b: build network update request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-API-Key", s.client.apiKey)
+
+	resp, err := s.client.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("e2b: send network update request: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	switch resp.StatusCode {
+	case http.StatusNoContent, http.StatusOK:
+		return nil
+	case http.StatusNotFound:
+		return &SandboxNotFoundError{SandboxID: s.ID}
+	default:
+		respBody, _ := io.ReadAll(resp.Body)
+		return &Error{StatusCode: resp.StatusCode, Message: string(respBody)}
+	}
+}
+
+// SandboxMetric holds a single resource usage snapshot for a sandbox.
+type SandboxMetric struct {
+	CPUCount      int     `json:"cpuCount"`
+	CPUUsedPct    float64 `json:"cpuUsedPct"`
+	MemTotal      int64   `json:"memTotal"`
+	MemUsed       int64   `json:"memUsed"`
+	MemCache      int64   `json:"memCache"`
+	DiskTotal     int64   `json:"diskTotal"`
+	DiskUsed      int64   `json:"diskUsed"`
+	Timestamp     string  `json:"timestamp"`
+	TimestampUnix int64   `json:"timestampUnix"`
+}
+
+// Metrics retrieves resource usage metrics for the sandbox.
+func (s *Sandbox) Metrics() ([]SandboxMetric, error) {
+	return s.MetricsWithContext(context.Background())
+}
+
+// MetricsWithContext retrieves resource usage metrics using the provided context.
+func (s *Sandbox) MetricsWithContext(ctx context.Context) ([]SandboxMetric, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, s.client.apiBaseURL+"/sandboxes/"+s.ID+"/metrics", nil)
+	if err != nil {
+		return nil, fmt.Errorf("e2b: build metrics request: %w", err)
+	}
+	req.Header.Set("X-API-Key", s.client.apiKey)
+
+	resp, err := s.client.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("e2b: send metrics request: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		respBody, _ := io.ReadAll(resp.Body)
+		return nil, &Error{StatusCode: resp.StatusCode, Message: string(respBody)}
+	}
+
+	var metrics []SandboxMetric
+	if err := json.NewDecoder(resp.Body).Decode(&metrics); err != nil {
+		return nil, fmt.Errorf("e2b: decode metrics response: %w", err)
+	}
+
+	return metrics, nil
+}
+
+// SandboxLogEntry holds a single structured log entry from a sandbox.
+type SandboxLogEntry struct {
+	Level     string            `json:"level"`
+	Message   string            `json:"message"`
+	Timestamp string            `json:"timestamp"`
+	Fields    map[string]string `json:"fields"`
+}
+
+type logsResponse struct {
+	Logs []SandboxLogEntry `json:"logs"`
+}
+
+type logsParams struct {
+	limit     int
+	direction string
+	level     string
+	search    string
+}
+
+// LogsOption configures a Logs request.
+type LogsOption func(*logsParams)
+
+// WithLimit sets the maximum number of log entries to return (default 1000).
+func WithLimit(n int) LogsOption {
+	return func(p *logsParams) { p.limit = n }
+}
+
+// WithDirection sets the sort order: "forward" (oldest first) or "backward" (newest first, default).
+func WithDirection(d string) LogsOption {
+	return func(p *logsParams) { p.direction = d }
+}
+
+// WithLevel filters logs by level: "debug", "info", "warn", or "error".
+func WithLevel(l string) LogsOption {
+	return func(p *logsParams) { p.level = l }
+}
+
+// WithSearch filters logs by a text search on the message field.
+func WithSearch(q string) LogsOption {
+	return func(p *logsParams) { p.search = q }
+}
+
+// Logs retrieves structured log entries for the sandbox.
+func (s *Sandbox) Logs(opts ...LogsOption) ([]SandboxLogEntry, error) {
+	return s.LogsWithContext(context.Background(), opts...)
+}
+
+// LogsWithContext retrieves structured log entries using the provided context.
+func (s *Sandbox) LogsWithContext(ctx context.Context, opts ...LogsOption) ([]SandboxLogEntry, error) {
+	var p logsParams
+	for _, o := range opts {
+		o(&p)
+	}
+
+	u := s.client.apiBaseURL + "/v2/sandboxes/" + s.ID + "/logs"
+	sep := '?'
+	if p.limit > 0 {
+		u += string(sep) + "limit=" + fmt.Sprintf("%d", p.limit)
+		sep = '&'
+	}
+	if p.direction != "" {
+		u += string(sep) + "direction=" + p.direction
+		sep = '&'
+	}
+	if p.level != "" {
+		u += string(sep) + "level=" + p.level
+		sep = '&'
+	}
+	if p.search != "" {
+		u += string(sep) + "search=" + p.search
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	if err != nil {
+		return nil, fmt.Errorf("e2b: build logs request: %w", err)
+	}
+	req.Header.Set("X-API-Key", s.client.apiKey)
+
+	resp, err := s.client.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("e2b: send logs request: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		respBody, _ := io.ReadAll(resp.Body)
+		return nil, &Error{StatusCode: resp.StatusCode, Message: string(respBody)}
+	}
+
+	var lr logsResponse
+	if err := json.NewDecoder(resp.Body).Decode(&lr); err != nil {
+		return nil, fmt.Errorf("e2b: decode logs response: %w", err)
+	}
+
+	return lr.Logs, nil
+}
+
+// SnapshotInfo holds information about a sandbox snapshot.
+type SnapshotInfo struct {
+	Names      []string `json:"names"`
+	SnapshotID string   `json:"snapshotID"`
+}
+
+type createSnapshotRequest struct {
+	Name string `json:"name,omitempty"`
+}
+
+// CreateSnapshot creates a snapshot of the sandbox's current state.
+// An optional name can be provided; if omitted, the API generates an ID.
+func (s *Sandbox) CreateSnapshot(ctx context.Context, name ...string) (*SnapshotInfo, error) {
+	var reqBody createSnapshotRequest
+	if len(name) > 0 {
+		reqBody.Name = name[0]
+	}
+
+	body, err := json.Marshal(reqBody)
+	if err != nil {
+		return nil, fmt.Errorf("e2b: marshal snapshot request: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.client.apiBaseURL+"/sandboxes/"+s.ID+"/snapshots", bytes.NewReader(body))
+	if err != nil {
+		return nil, fmt.Errorf("e2b: build snapshot request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-API-Key", s.client.apiKey)
+
+	resp, err := s.client.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("e2b: send snapshot request: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusCreated {
+		respBody, _ := io.ReadAll(resp.Body)
+		if resp.StatusCode == http.StatusNotFound {
+			return nil, &SandboxNotFoundError{SandboxID: s.ID}
+		}
+		return nil, &Error{StatusCode: resp.StatusCode, Message: string(respBody)}
+	}
+
+	var info SnapshotInfo
+	if err := json.NewDecoder(resp.Body).Decode(&info); err != nil {
+		return nil, fmt.Errorf("e2b: decode snapshot response: %w", err)
+	}
+
+	return &info, nil
+}

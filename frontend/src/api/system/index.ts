@@ -760,6 +760,8 @@ export interface SandboxE2BConfig {
   template_id?: string
   http_timeout_sec?: number
   e2b_sandbox_ttl_seconds?: number
+  /** envd 数据面端口；0/缺省用 SDK 默认 3000，FC Agent Sandbox 会自动推导为 5000 */
+  envd_port?: number
 }
 
 export interface SandboxSkillImage {

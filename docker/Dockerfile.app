@@ -38,10 +38,12 @@ RUN if [ -n "$APK_MIRROR_ARG" ]; then \
 # Install migrate tool
 RUN go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
 
-# Copy go mod files. go.mod replace-points anydoc at ./third_party/anydoc-go,
-# so that module's go.mod must exist before `go mod download`.
+# Copy go mod files. go.mod replace-points anydoc at ./third_party/anydoc-go
+# and go-e2b at ./third_party/go-e2b, so those modules' go.mod files must
+# exist before `go mod download`.
 COPY go.mod go.sum ./
 COPY third_party/anydoc-go/go.mod third_party/anydoc-go/go.mod
+COPY third_party/go-e2b/go.mod third_party/go-e2b/go.mod
 RUN --mount=type=cache,target=/go/pkg/mod go mod download
 COPY cmd/download cmd/download
 RUN go run cmd/download/duckdb/duckdb.go

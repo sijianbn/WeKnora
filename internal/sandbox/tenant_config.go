@@ -101,6 +101,9 @@ func ResolveEffectiveConfig(
 		overrideString(&effective.E2BSandboxDomain, e2bCfg.SandboxDomain)
 		overrideString(&effective.E2BAPIKey, e2bCfg.APIKey)
 		overrideString(&effective.E2BTemplate, e2bCfg.TemplateID)
+		if e2bCfg.EnvdPort > 0 {
+			effective.E2BEnvdPort = e2bCfg.EnvdPort
+		}
 		overrideSeconds(&effective.E2BHTTPTimeout, e2bCfg.HTTPTimeoutSec)
 		overrideSeconds(&effective.E2BSandboxTTL, e2bCfg.E2BSandboxTTLSeconds)
 	}
@@ -221,6 +224,7 @@ func clearProviderFields(cfg *Config) {
 	cfg.E2BSandboxDomain = ""
 	cfg.E2BAPIKey = ""
 	cfg.E2BTemplate = ""
+	cfg.E2BEnvdPort = 0
 	cfg.E2BSandboxTTL = 0
 	cfg.E2BHTTPTimeout = 0
 	cfg.Network = RemoteNetworkPolicy{}

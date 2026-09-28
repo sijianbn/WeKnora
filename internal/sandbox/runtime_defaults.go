@@ -1,5 +1,10 @@
 package sandbox
 
+import (
+	"net/url"
+	"strings"
+)
+
 // Runtime tuning has safe built-in defaults. Unlike endpoints, credentials,
 // and templates, these values do not identify an external backend.
 func applyCubeRuntimeDefaults(cfg *Config) {
@@ -52,4 +57,23 @@ func applyE2BRuntimeDefaults(cfg *Config) {
 	if cfg.E2BHTTPTimeout <= 0 {
 		cfg.E2BHTTPTimeout = DefaultE2BHTTPTimeout
 	}
+	// The envd port is derived from the API endpoint rather than defaulted
+	// blindly: rewriting it is only correct for providers that actually serve
+	// envd elsewhere, and for everyone else the SDK's hardcoded 3000 must
+	// stand. An explicit envd_port always wins.
+	if cfg.E2BEnvdPort <= 0 && isFCAliyunAgentSandboxAPI(cfg.E2BAPIURL) {
+		cfg.E2BEnvdPort = FCAliyunEnvdPort
+	}
+}
+
+// isFCAliyunAgentSandboxAPI reports whether apiURL addresses an FC Agent
+// Sandbox control plane, recognised by its regional *.fc.aliyuncs.com host
+// (e.g. api.cn-hangzhou.e2b.fc.aliyuncs.com).
+func isFCAliyunAgentSandboxAPI(apiURL string) bool {
+	parsed, err := url.Parse(strings.TrimSpace(apiURL))
+	if err != nil {
+		return false
+	}
+	host := parsed.Hostname()
+	return host != "" && strings.HasSuffix(strings.ToLower(host), ".fc.aliyuncs.com")
 }

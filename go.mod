@@ -327,7 +327,7 @@ require (
 	go.mongodb.org/mongo-driver/v2 v2.5.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.67.0 // indirect
-	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.68.0 // indirect
+	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.68.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.43.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.43.0 // indirect
 	go.opentelemetry.io/otel/metric v1.43.0 // indirect
@@ -359,3 +359,9 @@ replace go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelg
 // The anydoc Go bindings are not published yet (firecrawl/anydoc#30 is still
 // open), so they are vendored. Drop this replace once upstream tags go/vX.Y.Z.
 replace github.com/firecrawl/anydoc/go => ./third_party/anydoc-go
+
+// go-e2b is vendored for one WeKnora patch: the envd Connect clients use the
+// protojson codec instead of binary proto, because JSON-only envd
+// implementations (FC Agent Sandbox) reject application/(connect+)proto with
+// HTTP 400. Revisit if upstream gains a codec option.
+replace github.com/matiasinsaurralde/go-e2b => ./third_party/go-e2b

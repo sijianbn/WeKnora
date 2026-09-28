@@ -35,6 +35,12 @@ type SandboxIdentity struct {
 	// Data plane - whether an existing sandbox can still be used.
 	SandboxDomain string
 	ProxyURL      string
+
+	// EnvdPort is E2B-only: like the domain, it decides whether data-plane
+	// calls can reach an existing sandbox. It reads the stored field, not the
+	// FC auto-derivation, so a stored envd_port and an omitted one stay
+	// distinguishable.
+	EnvdPort int
 }
 
 // IdentityOf projects a stored config onto its identity. Only the active
@@ -70,6 +76,7 @@ func IdentityOf(tenantCfg *types.TenantSandboxConfig) SandboxIdentity {
 			identity.APIURL, identity.APIKey = e2bCfg.APIURL, e2bCfg.APIKey
 			identity.SandboxDomain = e2bCfg.SandboxDomain
 			identity.ProxyURL = e2bCfg.ProxyURL
+			identity.EnvdPort = e2bCfg.EnvdPort
 		}
 	case SandboxTypeDocker:
 		// The daemon endpoint is both planes at once: containers are created,

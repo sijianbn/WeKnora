@@ -217,6 +217,20 @@ func (t *gatewaySplitTransport) withInboundToken(req *http.Request) *http.Reques
 	}
 	token := t.inboundToken.Get(sandboxID)
 	if token == "" {
+		// Providers that report the sandbox credential under a different field
+		// leave the registry empty: FC Agent Sandbox returns envdAccessToken,
+		// which go-e2b keeps unexported and sends only as X-Access-Token, so
+		// TrafficAccessToken — the field the registry is fed from — stays
+		// blank. The ingress of such providers still gates every data-plane
+		// call on this header ("session ingress denied: missing
+		// e2b-traffic-access-token header"), so fall back to the token the SDK
+		// already put on the request. A registry hit always wins, which keeps
+		// E2B Cloud's distinct traffic token authoritative.
+		if fallback := req.Header.Get("X-Access-Token"); fallback != "" {
+			token = fallback
+		}
+	}
+	if token == "" {
 		return req
 	}
 	// Clone rather than mutate: the caller owns req, and the SDK may retry it.

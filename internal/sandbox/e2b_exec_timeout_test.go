@@ -39,7 +39,7 @@ func TestE2BExecTimeoutBudgets(t *testing.T) {
 					http.NotFound(w, r)
 					return
 				}
-				w.Header().Set("Content-Type", "application/connect+proto")
+				w.Header().Set("Content-Type", "application/connect+json")
 				writeFrame := func(payload []byte) {
 					header := make([]byte, 5)
 					binary.BigEndian.PutUint32(header[1:], uint32(len(payload)))
@@ -47,13 +47,15 @@ func TestE2BExecTimeoutBudgets(t *testing.T) {
 					w.(http.Flusher).Flush()
 				}
 				// StartResponse{event:{start:{pid:1}}}. The SDK's protobuf
-				// types are internal, so these small fixtures use wire bytes.
-				writeFrame([]byte{0x0a, 4, 0x0a, 2, 0x08, 1})
+				// types are internal, so these small fixtures use wire bytes —
+				// protojson here, matching the codec the WeKnora-patched SDK
+				// negotiates (see third_party/go-e2b).
+				writeFrame([]byte(`{"event":{"start":{"pid":1}}}`))
 				close(started)
 				select {
 				case <-time.After(300 * time.Millisecond):
 					// StartResponse{event:{end:{exited:true, exit_code:0}}}.
-					writeFrame([]byte{0x0a, 4, 0x1a, 2, 0x10, 1})
+					writeFrame([]byte(`{"event":{"end":{"exited":true,"exitCode":0}}}`))
 					// Connect end-of-stream envelope with empty metadata.
 					_, _ = w.Write([]byte{2, 0, 0, 0, 2, '{', '}'})
 				case <-r.Context().Done():

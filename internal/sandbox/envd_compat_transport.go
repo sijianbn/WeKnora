@@ -9,12 +9,14 @@
 // E2B Cloud's own gateway is lenient enough to hide the difference, so the gap
 // only surfaces against other implementations of the protocol — the very
 // backends WeKnora wants to support without carrying one adapter per vendor.
-// Rather than fork the SDK, this transport rewrites the two data-plane details
+// Rather than fork the SDK, this transport rewrites the data-plane details
 // on the way out:
 //
 //   - it adds "Authorization: Basic base64(user:)" when the request carries no
 //     credentials of its own;
-//   - it re-wraps a non-multipart /files upload as multipart/form-data.
+//   - it re-wraps a non-multipart /files upload as multipart/form-data;
+//   - and, for providers whose envd is not on the SDK's port, it rewrites the
+//     authority's port label (see NewEnvdPortTransport below).
 //
 // Requests are recognised by path, not by host, so the shim works whether the
 // data plane is reached directly or through a gateway (gateway_transport.go).
@@ -142,4 +144,63 @@ func rewriteEnvdUpload(req *http.Request) error {
 		return io.NopCloser(bytes.NewReader(body)), nil
 	}
 	return nil
+}
+
+// envdPortPrefix is the authority label the SDK pins onto every envd call:
+// "49983-{sandboxID}.{domain}". Only this prefix is rewritten, never the ports
+// of other data-plane services (desktop websockify dials 6080-), so a
+// misconfigured port cannot silently redirect unrelated traffic.
+const envdPortPrefix = "49983-"
+
+// NewEnvdPortTransport rewrites the envd authority's port prefix from the
+// SDK's hardcoded 49983 onto port.
+//
+// go-e2b exposes no override for the envd port, yet E2B-compatible providers
+// are free to serve envd elsewhere — FC Agent Sandbox listens on 5000, and its
+// gateway answers 49983- authorities with an HTTP-level 4xx that surfaces as
+// "process rpc: HTTP status 400 Bad Request; command was not started". Like
+// the two rewrites above, this is a data-plane detail fixed on the way out
+// rather than an SDK fork.
+//
+// A port of 0 or the SDK's own 49983 returns next untouched, so backends that
+// keep the default pay nothing. The rewrite applies only to envd requests —
+// recognised by path, like isEnvdDataPlaneRequest — which also keeps a
+// control-plane host that merely starts with "49983-" out of scope.
+func NewEnvdPortTransport(next http.RoundTripper, port int) http.RoundTripper {
+	if next == nil {
+		next = http.DefaultTransport
+	}
+	if port <= 0 || port == SDKEnvdPort {
+		return next
+	}
+	return &envdPortTransport{next: next, port: port}
+}
+
+type envdPortTransport struct {
+	next http.RoundTripper
+	port int
+}
+
+func (t *envdPortTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	if !isEnvdDataPlaneRequest(req) || !hasEnvdPortPrefix(req.URL.Host) {
+		return t.next.RoundTrip(req)
+	}
+	// Clone rather than mutate: the caller owns req, and the SDK may retry it.
+	rewritten := req.Clone(req.Context())
+	url := *req.URL
+	url.Host = fmt.Sprintf("%d-%s", t.port, strings.TrimPrefix(req.URL.Host, envdPortPrefix))
+	rewritten.URL = &url
+	return t.next.RoundTrip(rewritten)
+}
+
+func (t *envdPortTransport) CloseIdleConnections() {
+	if closer, ok := t.next.(interface{ CloseIdleConnections() }); ok {
+		closer.CloseIdleConnections()
+	}
+}
+
+// hasEnvdPortPrefix reports whether the authority carries the SDK's envd port
+// label. The comparison is case-insensitive because DNS authorities are.
+func hasEnvdPortPrefix(host string) bool {
+	return strings.HasPrefix(strings.ToLower(strings.TrimSpace(host)), envdPortPrefix)
 }

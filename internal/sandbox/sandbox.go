@@ -140,6 +140,20 @@ const (
 	// Named E2B configs may omit sandbox_domain (config_required.go); envd
 	// then uses this value, and DialDesktop must too.
 	DefaultE2BSandboxDomain = "e2b.app"
+
+	// SDKEnvdPort is the port go-e2b hardcodes into every envd authority
+	// ("49983-{sandboxID}.{domain}"; captured from the SDK's outbound requests,
+	// and the same value as Cube's envd convention). It is not configurable
+	// there, so E2B-compatible providers serving envd elsewhere need the port
+	// rewritten on the way out instead.
+	SDKEnvdPort = 49983
+
+	// FCAliyunEnvdPort is FC Agent Sandbox's envd port, verified against
+	// api.cn-hangzhou.e2b.fc.aliyuncs.com (envd 0.5.2): the gateway answers
+	// 3000- authorities with 4xx/502 while 5000- carries the process and
+	// filesystem services. Configs whose API URL is an *.fc.aliyuncs.com host
+	// default to this (runtime_defaults.go).
+	FCAliyunEnvdPort = 5000
 )
 
 // Common errors
@@ -418,6 +432,13 @@ type Config struct {
 	// resolving the sandbox authority through DNS over TLS, which is what E2B
 	// Cloud expects. See types.E2BSandboxConfig.ProxyURL.
 	E2BProxyURL string
+
+	// E2BEnvdPort is the port envd listens on inside this provider's sandboxes.
+	// The SDK always addresses envd as "3000-{sandboxID}.{domain}"; a provider
+	// serving envd on another port (FC Agent Sandbox: 5000) needs the authority
+	// rewritten, which is what a non-zero value here enables. Zero keeps the
+	// SDK's default untouched.
+	E2BEnvdPort int
 
 	// E2BTemplate is the E2B template ID used at sandbox creation.
 	E2BTemplate string

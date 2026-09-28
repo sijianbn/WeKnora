@@ -745,6 +745,12 @@ type E2BSandboxConfig struct {
 	// 0 means use the built-in default (30s), never the deployment's value.
 	HTTPTimeoutSec int `json:"http_timeout_sec,omitempty"`
 
+	// EnvdPort is the port envd listens on inside this provider's sandboxes.
+	// 0 keeps the SDK's hardcoded default (3000); FC Agent Sandbox is the known
+	// deviation and is auto-detected, so this exists for other E2B-compatible
+	// providers that serve envd on a different port.
+	EnvdPort int `json:"envd_port,omitempty"`
+
 	E2BSandboxTTLSeconds int `json:"e2b_sandbox_ttl_seconds,omitempty"`
 }
 
